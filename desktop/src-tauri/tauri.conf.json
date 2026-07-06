@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicepkg/vscode-tauri/main/schemas/tauri.conf.schema.json",
+  "productName": "AsisVoz",
+  "version": "0.2.0",
+  "identifier": "com.asisvoz.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "AsisVoz",
+        "width": 400,
+        "height": 520,
+        "minWidth": 360,
+        "minHeight": 420,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": true,
+        "visible": true,
+        "skipTaskbar": false,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "trayIcon": {
+      "iconPath": "icons/idle.png",
+      "iconAsTemplate": true
+    }
+  }
+}

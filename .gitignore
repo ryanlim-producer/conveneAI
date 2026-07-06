@@ -15,6 +15,11 @@ node_modules/
 .next/
 out/
 
+# Tauri desktop
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+
 # IDE
 .vscode/
 .idea/
@@ -28,6 +33,14 @@ transcripcion.txt
 transcripcion.pdf
 data/
 
+# Claude Code
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Build/test artifacts
+tsconfig.tsbuildinfo
+test-results/
+playwright-report/

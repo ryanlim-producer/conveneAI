@@ -1,0 +1,36 @@
+[package]
+name = "asisvoz-desktop"
+version = "0.1.0"
+description = "AsisVoz — Meeting Transcription + Action Items Desktop App"
+authors = ["ryanlim-producer"]
+edition = "2021"
+
+[lib]
+name = "asisvoz_desktop"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["multipart", "cookies", "json"] }
+tokio = { version = "1", features = ["full"] }
+cpal = "0.15"
+hound = "3.5"
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+mockall = "0.13"
+wiremock = "0.6"
+tempfile = "3"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

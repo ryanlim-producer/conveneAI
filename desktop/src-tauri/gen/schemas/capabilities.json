@@ -1,0 +1,1 @@
+{"main-capability":{"identifier":"main-capability","description":"Default capability for AsisVoz desktop app","local":true,"windows":["popup"],"permissions":["core:default","global-shortcut:allow-register","global-shortcut:allow-unregister","global-shortcut:allow-unregister-all","global-shortcut:allow-is-registered","notification:default","shell:allow-open"]}}
