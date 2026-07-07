@@ -20,6 +20,10 @@ pub fn build_ffmpeg_args(input_wav: &str, output_mp3: &str, bitrate_bps: u32) ->
         input_wav.to_string(),
         "-codec:a".to_string(),
         "libmp3lame".to_string(),
+        // Downmix to stereo: combined meeting captures are 3-channel
+        // (mic + BlackHole L/R) and libmp3lame only encodes mono/stereo.
+        "-ac".to_string(),
+        "2".to_string(),
         "-b:a".to_string(),
         format!("{}k", bitrate_bps / 1000),
         output_mp3.to_string(),
@@ -78,21 +82,26 @@ mod tests {
         assert_eq!(args[2], "/tmp/input.wav");
         assert_eq!(args[3], "-codec:a");
         assert_eq!(args[4], "libmp3lame");
-        assert_eq!(args[5], "-b:a");
-        assert_eq!(args[6], "128k");
-        assert_eq!(args[7], "/tmp/output.mp3");
+        assert_eq!(args[5], "-ac");
+        assert_eq!(args[6], "2");
+        assert_eq!(args[7], "-b:a");
+        assert_eq!(args[8], "128k");
+        assert_eq!(args[9], "/tmp/output.mp3");
     }
 
     #[test]
     fn test_build_ffmpeg_args_256kbps() {
         let args = build_ffmpeg_args("/tmp/in.wav", "/tmp/out.mp3", 256_000);
-        assert_eq!(args[6], "256k");
+        assert_eq!(args[8], "256k");
     }
 
     #[test]
-    fn test_build_ffmpeg_args_has_eight_arguments() {
+    fn test_build_ffmpeg_args_has_ten_arguments() {
         let args = build_ffmpeg_args("in.wav", "out.mp3", 128_000);
-        assert_eq!(args.len(), 8);
+        assert_eq!(args.len(), 10);
+        // stereo downmix present so >2ch meeting captures encode
+        assert_eq!(args[5], "-ac");
+        assert_eq!(args[6], "2");
     }
 
     #[test]

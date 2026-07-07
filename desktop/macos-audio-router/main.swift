@@ -14,6 +14,11 @@
 // device the moment it connects — we switch it back to the aggregate that
 // contains it).
 //
+// It also maintains "AsisVoz Meeting Input" — a combined INPUT device
+// [microphone + BlackHole] so the desktop app's "Meeting" source records
+// your own voice and the meeting's system audio at the same time. The
+// microphone member follows Bluetooth the same way playback does.
+//
 // Usage:
 //   asisvoz-audio-router --once    reconcile once and exit (setup / testing)
 //   asisvoz-audio-router           run forever (for launchd)
@@ -23,6 +28,8 @@ import Foundation
 
 let AGGREGATE_UID = "com.asisvoz.audio-router.aggregate"
 let AGGREGATE_NAME = "AsisVoz Audio"
+let INPUT_AGGREGATE_UID = "com.asisvoz.audio-router.meeting-input"
+let INPUT_AGGREGATE_NAME = "AsisVoz Meeting Input"
 let BLACKHOLE_NAME_PREFIX = "BlackHole"
 
 func log(_ msg: String) {
@@ -70,9 +77,8 @@ func getTransportType(_ device: AudioDeviceID) -> UInt32 {
     return value
 }
 
-func outputChannelCount(_ device: AudioDeviceID) -> Int {
-    var address = propertyAddress(kAudioDevicePropertyStreamConfiguration,
-                                  scope: kAudioDevicePropertyScopeOutput)
+func channelCount(_ device: AudioDeviceID, scope: AudioObjectPropertyScope) -> Int {
+    var address = propertyAddress(kAudioDevicePropertyStreamConfiguration, scope: scope)
     var size: UInt32 = 0
     guard AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr, size > 0 else { return 0 }
     let buffer = UnsafeMutableRawPointer.allocate(byteCount: Int(size),
@@ -90,9 +96,9 @@ struct Device {
     let transport: UInt32
 }
 
-func outputDevices() -> [Device] {
+func devices(scope: AudioObjectPropertyScope) -> [Device] {
     getDeviceIDs().compactMap { id in
-        guard outputChannelCount(id) > 0,
+        guard channelCount(id, scope: scope) > 0,
               let uid = getStringProperty(id, kAudioDevicePropertyDeviceUID),
               let name = getStringProperty(id, kAudioObjectPropertyName) as String? else { return nil }
         return Device(id: id, uid: uid, name: name, transport: getTransportType(id))
@@ -140,17 +146,19 @@ func setSubDevices(_ aggregate: AudioDeviceID, uids: [String]) {
     if err != noErr { log("failed to set sub-device list (err \(err))") }
 }
 
-func createAggregate(subDeviceUIDs: [String], mainUID: String) -> AudioDeviceID? {
-    let subDevices = subDeviceUIDs.map { uid -> [String: Any] in
-        [kAudioSubDeviceUIDKey as String: uid,
-         kAudioSubDeviceDriftCompensationKey as String: uid == mainUID ? 0 : 1]
+func createAggregate(name: String, uid: String, subDeviceUIDs: [String],
+                     mainUID: String, stacked: Bool) -> AudioDeviceID? {
+    let subDevices = subDeviceUIDs.map { subUID -> [String: Any] in
+        [kAudioSubDeviceUIDKey as String: subUID,
+         kAudioSubDeviceDriftCompensationKey as String: subUID == mainUID ? 0 : 1]
     }
     let description: [String: Any] = [
-        kAudioAggregateDeviceNameKey as String: AGGREGATE_NAME,
-        kAudioAggregateDeviceUIDKey as String: AGGREGATE_UID,
+        kAudioAggregateDeviceNameKey as String: name,
+        kAudioAggregateDeviceUIDKey as String: uid,
         kAudioAggregateDeviceSubDeviceListKey as String: subDevices,
         kAudioAggregateDeviceMainSubDeviceKey as String: mainUID,
-        kAudioAggregateDeviceIsStackedKey as String: 1, // stacked = Multi-Output
+        // stacked = Multi-Output (mirrored playback); non-stacked = combined channels
+        kAudioAggregateDeviceIsStackedKey as String: stacked ? 1 : 0,
     ]
     var aggregateID: AudioDeviceID = 0
     let err = AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateID)
@@ -163,47 +171,66 @@ func createAggregate(subDeviceUIDs: [String], mainUID: String) -> AudioDeviceID?
 
 // ── Reconcile ───────────────────────────────────────────────────────────────
 
-func reconcile() {
-    let devices = outputDevices()
+func isBluetooth(_ d: Device) -> Bool {
+    d.transport == kAudioDeviceTransportTypeBluetooth ||
+    d.transport == kAudioDeviceTransportTypeBluetoothLE
+}
 
-    guard let blackhole = devices.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }) else {
+/// Ensure an aggregate exists with exactly these members; returns its id.
+func ensureAggregate(name: String, uid: String, wantedUIDs: [String], mainUID: String,
+                     stacked: Bool, existing: Device?) -> AudioDeviceID? {
+    if let existing = existing {
+        if currentSubDeviceUIDs(existing.id) != wantedUIDs {
+            log("updating '\(name)' members -> \(wantedUIDs.joined(separator: " + "))")
+            setSubDevices(existing.id, uids: wantedUIDs)
+        }
+        return existing.id
+    }
+    log("creating '\(name)' -> \(wantedUIDs.joined(separator: " + "))")
+    return createAggregate(name: name, uid: uid, subDeviceUIDs: wantedUIDs,
+                           mainUID: mainUID, stacked: stacked)
+}
+
+func reconcile() {
+    let outputs = devices(scope: kAudioDevicePropertyScopeOutput)
+    let inputs = devices(scope: kAudioDevicePropertyScopeInput)
+
+    guard let blackholeOut = outputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }),
+          let blackholeIn = inputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }) else {
         log("BlackHole not found — nothing to do (install BlackHole 2ch)")
         return
     }
 
-    // Companion = the device the human actually listens on.
-    let bluetooth = devices.first { d in
-        (d.transport == kAudioDeviceTransportTypeBluetooth ||
-         d.transport == kAudioDeviceTransportTypeBluetoothLE) && d.uid != blackhole.uid
-    }
-    let builtIn = devices.first { $0.transport == kAudioDeviceTransportTypeBuiltIn }
+    // ── Output: [listening device + BlackHole], default output ──
+    let btOut = outputs.first { isBluetooth($0) && $0.uid != blackholeOut.uid }
+    let builtInOut = outputs.first { $0.transport == kAudioDeviceTransportTypeBuiltIn }
 
-    guard let companion = bluetooth ?? builtIn else {
-        log("no companion output device found")
-        return
-    }
-
-    let wantedUIDs = [companion.uid, blackhole.uid]
-
-    let aggregate = devices.first { $0.uid == AGGREGATE_UID }
-    var aggregateID = aggregate?.id
-
-    if let existing = aggregateID {
-        let current = currentSubDeviceUIDs(existing)
-        if current != wantedUIDs {
-            log("updating members: \(companion.name) + \(blackhole.name)")
-            setSubDevices(existing, uids: wantedUIDs)
+    if let companion = btOut ?? builtInOut {
+        let target = ensureAggregate(
+            name: AGGREGATE_NAME, uid: AGGREGATE_UID,
+            wantedUIDs: [companion.uid, blackholeOut.uid], mainUID: companion.uid,
+            stacked: true,
+            existing: outputs.first { $0.uid == AGGREGATE_UID })
+        if let target = target, getDefaultOutput() != target {
+            log("setting default output -> '\(AGGREGATE_NAME)' (hearing via \(companion.name))")
+            setDefaultOutput(target)
         }
     } else {
-        log("creating '\(AGGREGATE_NAME)': \(companion.name) + \(blackhole.name)")
-        aggregateID = createAggregate(subDeviceUIDs: wantedUIDs, mainUID: companion.uid)
+        log("no companion output device found")
     }
 
-    guard let target = aggregateID else { return }
+    // ── Input: [microphone + BlackHole] combined, for the app's Meeting source ──
+    let btMic = inputs.first { isBluetooth($0) && $0.uid != blackholeIn.uid }
+    let builtInMic = inputs.first { $0.transport == kAudioDeviceTransportTypeBuiltIn }
 
-    if getDefaultOutput() != target {
-        log("setting default output -> '\(AGGREGATE_NAME)' (hearing via \(companion.name))")
-        setDefaultOutput(target)
+    if let mic = btMic ?? builtInMic {
+        _ = ensureAggregate(
+            name: INPUT_AGGREGATE_NAME, uid: INPUT_AGGREGATE_UID,
+            wantedUIDs: [mic.uid, blackholeIn.uid], mainUID: mic.uid,
+            stacked: false,
+            existing: inputs.first { $0.uid == INPUT_AGGREGATE_UID })
+    } else {
+        log("no microphone found for the meeting input")
     }
 }
 

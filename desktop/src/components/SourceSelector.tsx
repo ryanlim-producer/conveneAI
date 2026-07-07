@@ -9,6 +9,7 @@ interface SourceSelectorProps {
 const SOURCES: { id: AudioSource; icon: string; label: string }[] = [
   { id: "mic", icon: "🎤", label: "Microphone" },
   { id: "blackhole", icon: "🎧", label: "Internal Audio" },
+  { id: "meeting", icon: "💬", label: "Meeting (Mic + Internal)" },
 ];
 
 /** Persistent-window source toggle — the selected source is used by both the

@@ -5,11 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { SourceSelector } from "./SourceSelector";
 
 describe("SourceSelector", () => {
-  it("renders both sources with the current one selected", () => {
+  it("renders all three sources with the current one selected", () => {
     render(<SourceSelector value="mic" onChange={() => {}} />);
 
     expect(screen.getByTestId("source-mic").getAttribute("aria-checked")).toBe("true");
     expect(screen.getByTestId("source-blackhole").getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByTestId("source-meeting").getAttribute("aria-checked")).toBe("false");
   });
 
   it("calls onChange with the picked source", async () => {

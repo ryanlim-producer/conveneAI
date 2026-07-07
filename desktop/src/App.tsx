@@ -30,8 +30,8 @@ function App() {
         setApiUrl(status.api_url);
         setAuth(status.authenticated ? "authenticated" : "anonymous");
         const settings = await invoke<AppSettings>("cmd_get_settings");
-        if (settings.last_source === "blackhole" || settings.last_source === "mic") {
-          setSource(settings.last_source);
+        if (["blackhole", "mic", "meeting"].includes(settings.last_source)) {
+          setSource(settings.last_source as AudioSource);
         }
         setHotkey(settings.hotkey);
       } catch {
@@ -106,6 +106,18 @@ function App() {
       const available = await invoke<boolean>("cmd_blackhole_available").catch(() => false);
       if (!available) {
         setShowBlackHoleGuide(true);
+        return;
+      }
+    }
+    if (next === "meeting") {
+      const available = await invoke<boolean>("cmd_meeting_input_available").catch(() => false);
+      if (!available) {
+        setBanner({
+          kind: "error",
+          text:
+            "Meeting input device not found. Run desktop/macos-audio-router/install.sh " +
+            "once to enable combined mic + internal audio recording.",
+        });
         return;
       }
     }

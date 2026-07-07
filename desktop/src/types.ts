@@ -1,7 +1,7 @@
 /// Shared types for the Tauri desktop app frontend
 
 /** Audio source types available for recording */
-export type AudioSource = "blackhole" | "mic";
+export type AudioSource = "blackhole" | "mic" | "meeting";
 
 /** Recording lifecycle state reported by the Rust backend */
 export type RecorderState = "idle" | "recording" | "processing";

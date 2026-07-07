@@ -127,6 +127,11 @@ fn cmd_blackhole_available() -> bool {
     audio::blackhole_available()
 }
 
+#[tauri::command]
+fn cmd_meeting_input_available() -> bool {
+    audio::meeting_input_available()
+}
+
 /// Start capturing audio from the given source ("blackhole" | "mic").
 fn start_recording_impl(app: &AppHandle, source: &str) -> Result<(), String> {
     let state = app.state::<AppState>();
@@ -448,6 +453,7 @@ pub fn run() {
             cmd_ping,
             cmd_get_audio_devices,
             cmd_blackhole_available,
+            cmd_meeting_input_available,
             cmd_start_recording,
             cmd_stop_recording,
             cmd_get_audio_level,

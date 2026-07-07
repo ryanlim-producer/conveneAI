@@ -42,6 +42,8 @@ function mockBackend(overrides: Record<string, unknown> = {}) {
         return 0.2;
       case "cmd_blackhole_available":
         return true;
+      case "cmd_meeting_input_available":
+        return true;
       default:
         return undefined;
     }
@@ -128,6 +130,33 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByTestId("blackhole-back")).toBeDefined();
     });
+  });
+
+  it("records from the combined meeting input when Meeting is selected", async () => {
+    mockBackend({ cmd_auth_status: { authenticated: true, api_url: "http://x" } });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("record-button")).toBeDefined());
+
+    await userEvent.click(screen.getByTestId("source-meeting"));
+    await userEvent.click(screen.getByTestId("record-button"));
+
+    expect(mockInvoke).toHaveBeenCalledWith("cmd_start_recording", { source: "meeting" });
+  });
+
+  it("explains how to enable Meeting mode when the combined device is missing", async () => {
+    mockBackend({
+      cmd_auth_status: { authenticated: true, api_url: "http://x" },
+      cmd_meeting_input_available: false,
+    });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("record-button")).toBeDefined());
+
+    await userEvent.click(screen.getByTestId("source-meeting"));
+    await waitFor(() => {
+      expect(screen.getByTestId("upload-error").textContent).toContain("audio-router");
+    });
+    // selection did not switch
+    expect(screen.getByTestId("source-meeting").getAttribute("aria-checked")).toBe("false");
   });
 
   it("stops recording via cmd_stop_recording", async () => {

@@ -49,11 +49,24 @@ impl CaptureHandle {
     }
 }
 
-/// Start capturing from the requested source ("blackhole" or "mic").
+/// Start capturing from the requested source ("blackhole", "mic" or "meeting").
 pub fn start_capture(source: &str) -> Result<CaptureHandle, String> {
     let host = cpal::default_host();
 
-    let device = if source == "blackhole" {
+    let device = if source == "meeting" {
+        host.input_devices()
+            .map_err(|e| format!("Cannot enumerate audio devices: {e}"))?
+            .find(|d| {
+                d.name()
+                    .map(|n| n == crate::audio::MEETING_INPUT_NAME)
+                    .unwrap_or(false)
+            })
+            .ok_or_else(|| {
+                "Meeting input device not found. Run desktop/macos-audio-router/install.sh \
+                 to set up combined mic + internal audio recording."
+                    .to_string()
+            })?
+    } else if source == "blackhole" {
         let bh = find_blackhole_device()
             .ok_or_else(|| "BlackHole device not found. Install it with: brew install blackhole-2ch".to_string())?;
         host.input_devices()
