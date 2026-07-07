@@ -97,6 +97,33 @@ test("settings shows recommended defaults and persists a model change", async ({
   await expect(page.getByText("Model preferences saved")).toBeVisible();
 });
 
+test("uploads larger than 10MB survive the middleware layer (no body truncation)", async ({
+  page,
+}) => {
+  // Regression: Next 16 middleware truncates bodies at 10MB by default
+  // (middlewareClientMaxBodySize), which corrupted the multipart stream and
+  // produced "Invalid multipart form data" for any real-length recording.
+  const fs = await import("fs");
+  const real = fs.readFileSync(FIXTURE_MP3);
+  const padded = Buffer.concat([real, Buffer.alloc(12 * 1024 * 1024)]); // >10MB
+
+  // self-contained account so this test can run in isolation (-g)
+  await register(page, `big-upload-${Date.now()}@example.com`, PASSWORD);
+  await page.goto("/upload");
+
+  const responsePromise = page.waitForResponse((r) => r.url().includes("/api/upload"));
+  await page.locator('[data-testid="upload-input"]').setInputFiles({
+    name: "long-meeting.mp3",
+    mimeType: "audio/mpeg",
+    buffer: padded,
+  });
+  await page.locator('[data-testid="language-select"]').selectOption("en");
+  await page.click('[data-testid="upload-submit"]');
+
+  const res = await responsePromise;
+  expect(res.status()).toBe(202);
+});
+
 test("full pipeline: upload real audio → queue → done → chat about the meeting", async ({
   page,
 }) => {

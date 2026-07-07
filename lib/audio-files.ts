@@ -11,13 +11,15 @@ export const ALLOWED_AUDIO_TYPES = [
   "audio/x-m4a",
 ];
 
-export const ALLOWED_EXTENSIONS = [".mp3", ".wav", ".webm", ".ogg", ".m4a", ".mp4"];
+// .oga is Telegram's extension for voice notes (OGG/Opus container)
+export const ALLOWED_EXTENSIONS = [".mp3", ".wav", ".webm", ".ogg", ".oga", ".m4a", ".mp4"];
 
 const EXTENSION_CONTENT_TYPES: Record<string, string> = {
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
   ".webm": "audio/webm",
   ".ogg": "audio/ogg",
+  ".oga": "audio/ogg",
   ".m4a": "audio/x-m4a",
   ".mp4": "audio/mp4",
 };

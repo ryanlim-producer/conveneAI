@@ -9,11 +9,6 @@ const PUBLIC_PAGES = ["/login", "/register"];
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // API routes handle their own auth (401 JSON, not redirects)
-  if (pathname.startsWith("/api")) {
-    return NextResponse.next();
-  }
-
   const hasSession = Boolean(request.cookies.get(AUTH_COOKIE)?.value);
   const isPublicPage = PUBLIC_PAGES.some((p) => pathname.startsWith(p));
 
@@ -31,5 +26,8 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/((?!_next/static|_next/image|favicon.ico).*)",
+  // API routes are excluded entirely: they handle their own auth (401 JSON,
+  // not redirects), and keeping them out of middleware avoids request-body
+  // buffering/truncation on large uploads.
+  matcher: "/((?!api|_next/static|_next/image|favicon.ico).*)",
 };

@@ -126,6 +126,18 @@ describe("POST /api/upload", () => {
     expect(getJob(body.jobId)!.source).toBe("desktop");
   });
 
+  it("accepts Telegram .oga voice notes even without a MIME type", async () => {
+    const res = await uploadRoute(
+      uploadRequest({ cookie, file: { name: "voice.oga", type: "", bytes: MP3_BYTES } }),
+    );
+
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    const job = getJob(body.jobId, userId)!;
+    expect(job.s3Key).toBe(`uploads/${userId}/${body.jobId}.oga`);
+    expect(uploadAudioMock).toHaveBeenCalledWith(job.s3Key, expect.any(Buffer), "audio/ogg");
+  });
+
   it("rejects unauthenticated requests with 401", async () => {
     const res = await uploadRoute(
       uploadRequest({ file: { name: "a.mp3", type: "audio/mpeg", bytes: MP3_BYTES } }),

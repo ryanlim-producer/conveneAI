@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { UploadCloud, FileAudio } from "lucide-react";
 
-const ACCEPTED = ".mp3,.wav,.webm,.ogg,.m4a,.mp4,audio/*";
+const ACCEPTED = ".mp3,.wav,.webm,.ogg,.oga,.m4a,.mp4,audio/*";
 
 const LANGUAGES = [
   { value: "es", label: "Español" },
@@ -28,7 +28,7 @@ export function UploadZone() {
 
   const pickFile = useCallback((candidate: File | undefined | null) => {
     if (!candidate) return;
-    if (!/\.(mp3|wav|webm|ogg|m4a|mp4)$/i.test(candidate.name) && !candidate.type.startsWith("audio/")) {
+    if (!/\.(mp3|wav|webm|ogg|oga|m4a|mp4)$/i.test(candidate.name) && !candidate.type.startsWith("audio/")) {
       toast.error("Please choose an audio file (MP3, WAV, WebM, OGG, M4A).");
       return;
     }
