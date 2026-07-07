@@ -27,20 +27,26 @@ export async function getAudioDurationSeconds(audio: Buffer): Promise<number> {
   }
 }
 
-/** Splits audio into chunks of chunkSeconds via ffmpeg segment mode (stream copy). */
+/**
+ * Splits audio into chunks of chunkSeconds via ffmpeg segment mode.
+ * Chunks are transcoded to MP3 rather than stream-copied: the input can be
+ * any supported format (m4a/ogg/wav/...), and codec-copying those into .mp3
+ * segment files fails outright.
+ */
 export async function splitAudioIntoChunks(
   audio: Buffer,
   chunkSeconds = 1800,
 ): Promise<Buffer[]> {
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "asisvoz-split-"));
-  const inputFile = path.join(workDir, "input.mp3");
+  const inputFile = path.join(workDir, "input.audio"); // ffmpeg sniffs the container
   try {
     await fs.writeFile(inputFile, audio);
     await execFileAsync("ffmpeg", [
       "-i", inputFile,
       "-f", "segment",
       "-segment_time", String(chunkSeconds),
-      "-c", "copy",
+      "-c:a", "libmp3lame",
+      "-b:a", "128k",
       path.join(workDir, "chunk_%03d.mp3"),
     ]);
 
