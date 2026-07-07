@@ -64,8 +64,8 @@ export function ChatWindow({ recordingId }: { recordingId: string }) {
   }
 
   return (
-    <div className="flex h-full min-h-[420px] flex-col" data-testid="chat-window">
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-window">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {messages === null ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading conversation…</p>
         ) : messages.length === 0 ? (

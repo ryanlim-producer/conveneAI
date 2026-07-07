@@ -10,6 +10,7 @@ interface RecordingRow {
   duration_seconds: number | null;
   speaker_count: number;
   action_items_json: string | null;
+  group_name: string | null;
   created_at: string;
   job_status: string | null;
 }
@@ -23,7 +24,7 @@ async function handleGetHistory(
   const rows = db
     .prepare(
       `SELECT r.id, r.filename, r.source, r.duration_seconds, r.speaker_count,
-              r.action_items_json, r.created_at, j.status AS job_status
+              r.action_items_json, r.group_name, r.created_at, j.status AS job_status
        FROM recordings r
        LEFT JOIN jobs j ON j.id = r.job_id
        WHERE r.user_id = ?
@@ -46,6 +47,7 @@ async function handleGetHistory(
       durationSeconds: row.duration_seconds,
       speakerCount: row.speaker_count,
       actionItemCount,
+      group: row.group_name,
       jobStatus: row.job_status,
       createdAt: row.created_at,
     };

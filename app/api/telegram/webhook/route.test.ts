@@ -204,6 +204,61 @@ describe("POST /api/telegram/webhook", () => {
     expect(sentMessages.some((m) => /invalid|expired/i.test(m))).toBe(true);
   });
 
+  it("renames a job when the user replies to the bot's queued message", async () => {
+    const userId = insertUser();
+    db.prepare(
+      "INSERT INTO telegram_links (id, user_id, telegram_user_id, telegram_chat_id) VALUES (?, ?, 12345, 456789)",
+    ).run(randomUUID(), userId);
+    db.prepare(
+      "INSERT INTO jobs (id, user_id, status, source, s3_key, filename) VALUES ('abcdef12-3456-7890-aaaa-bbbbccccdddd', ?, 'queued', 'telegram', 'k', 'file_1.oga')",
+    ).run(userId);
+
+    const res = await POST(
+      mockNextRequest(
+        {
+          update_id: 9,
+          message: {
+            message_id: 10,
+            text: "Weekly sync with design",
+            chat: { id: 456789 },
+            from: { id: 12345 },
+            reply_to_message: {
+              message_id: 5,
+              text: "🎙 Processing audio...\n\nYour recording is queued (job `abcdef12`). Reply to this message to name it.",
+            },
+          },
+        },
+        VALID_HEADER,
+      ),
+    );
+    expect(res.status).toBe(200);
+
+    const job = db
+      .prepare("SELECT filename FROM jobs WHERE id = 'abcdef12-3456-7890-aaaa-bbbbccccdddd'")
+      .get() as { filename: string };
+    expect(job.filename).toBe("Weekly sync with design");
+    expect(sentMessages.some((m) => /renamed|named/i.test(m))).toBe(true);
+  });
+
+  it("ignores replies that don't reference a job", async () => {
+    const res = await POST(
+      mockNextRequest(
+        {
+          update_id: 9,
+          message: {
+            message_id: 10,
+            text: "just chatting",
+            chat: { id: 456789 },
+            from: { id: 12345 },
+            reply_to_message: { message_id: 5, text: "✅ *Linked!* Your Telegram is now connected." },
+          },
+        },
+        VALID_HEADER,
+      ),
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("returns 200 for non-message updates", async () => {
     const res = await POST(mockNextRequest({ update_id: 1, edited_message: {} }, VALID_HEADER));
     expect(res.status).toBe(200);

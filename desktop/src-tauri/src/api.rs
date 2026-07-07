@@ -101,6 +101,30 @@ impl ApiClient {
         Ok(response.status() == StatusCode::OK)
     }
 
+    /// Rename a queued/completed recording right after upload.
+    /// PATCH /api/queue/{id} — the server also renames the recording row.
+    pub async fn rename_job(&self, job_id: &str, filename: &str) -> Result<(), ApiError> {
+        let url = format!("{}/api/queue/{}", self.api_url, job_id);
+        let response = self
+            .client
+            .patch(&url)
+            .json(&serde_json::json!({ "filename": filename }))
+            .send()
+            .await
+            .map_err(|e| ApiError::NetworkError(e.to_string()))?;
+
+        match response.status() {
+            StatusCode::OK => Ok(()),
+            StatusCode::UNAUTHORIZED => {
+                Err(ApiError::Unauthorized("Session expired — sign in again.".to_string()))
+            }
+            _ => {
+                let body = response.text().await.unwrap_or_default();
+                Err(ApiError::ServerError(error_message(&body, "Rename failed.")))
+            }
+        }
+    }
+
     /// Upload a recording. POST /api/upload multipart; server responds 202
     /// with a job id — all transcription happens server-side.
     pub async fn upload_audio(
@@ -234,6 +258,22 @@ mod tests {
             ApiError::Unauthorized(msg) => assert!(msg.contains("Invalid email")),
             other => panic!("expected Unauthorized, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_rename_job_patches_the_queue() {
+        let server = MockServer::start().await;
+        Mock::given(method("PATCH"))
+            .and(path("/api/queue/j-9"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "updated": true, "filename": "Standup" })),
+            )
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::new(server.uri()).unwrap();
+        client.rename_job("j-9", "Standup").await.unwrap();
     }
 
     #[tokio::test]

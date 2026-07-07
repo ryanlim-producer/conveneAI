@@ -322,6 +322,19 @@ async fn upload_recording(
     result
 }
 
+/// Name the recording right after upload (called from the post-upload banner).
+#[tauri::command]
+async fn cmd_rename_job(app: AppHandle, job_id: String, filename: String) -> Result<(), String> {
+    let client = shared_client(&app).ok_or_else(|| "Not signed in".to_string())?;
+    client
+        .rename_job(&job_id, filename.trim())
+        .await
+        .map_err(|e| match e {
+            api::ApiError::Unauthorized(msg) => msg,
+            other => format!("{other:?}"),
+        })
+}
+
 // ── Settings commands ──
 
 #[tauri::command]
@@ -464,6 +477,7 @@ pub fn run() {
             cmd_login,
             cmd_auth_status,
             cmd_logout,
+            cmd_rename_job,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -107,8 +107,45 @@ async function handleDelete(
   return NextResponse.json({ deleted: true, id });
 }
 
+async function handlePatch(
+  req: NextRequest,
+  ctx: { user: SessionUser; params?: { id: string } },
+): Promise<NextResponse> {
+  const id = ctx.params?.id;
+  if (!id || !getRecording(ctx.user.userId, id)) {
+    return NextResponse.json({ error: "Recording not found." }, { status: 404 });
+  }
+
+  let body: { filename?: unknown; group?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const db = getDb();
+
+  if (body.filename !== undefined) {
+    if (typeof body.filename !== "string" || !body.filename.trim()) {
+      return NextResponse.json({ error: "Filename cannot be empty." }, { status: 400 });
+    }
+    db.prepare("UPDATE recordings SET filename = ? WHERE id = ?").run(body.filename.trim(), id);
+  }
+
+  if (body.group !== undefined) {
+    if (body.group !== null && typeof body.group !== "string") {
+      return NextResponse.json({ error: "Group must be a string or null." }, { status: 400 });
+    }
+    const group = typeof body.group === "string" ? body.group.trim() || null : null;
+    db.prepare("UPDATE recordings SET group_name = ? WHERE id = ?").run(group, id);
+  }
+
+  return NextResponse.json({ updated: true, id });
+}
+
 export const GET = withAuth<{ id: string }>(handleGetDetail);
 export const DELETE = withAuth<{ id: string }>(handleDelete);
+export const PATCH = withAuth<{ id: string }>(handlePatch);
 
 // Exported for testing
 export { handleGetDetail, handleDelete };

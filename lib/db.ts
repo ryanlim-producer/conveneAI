@@ -126,6 +126,7 @@ function createRecordingsTable(db: Database.Database): void {
       speaker_map_json TEXT,
       model_used TEXT,
       cost_usd REAL,
+      group_name TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
@@ -154,6 +155,9 @@ export function initSchema(db: Database.Database): void {
   // those FKs to the temporary recordings_v1 table (see repairDanglingJobsFk).
   migrateV1Tables(db);
   createRecordingsTable(db);
+  if (!hasColumn(db, "recordings", "group_name")) {
+    db.exec("ALTER TABLE recordings ADD COLUMN group_name TEXT");
+  }
   repairDanglingJobsFk(db);
   createJobsTable(db);
 

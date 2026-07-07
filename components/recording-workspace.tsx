@@ -9,7 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChatWindow } from "@/components/chat-window";
 import { ActionItemsSidebar, type ActionItem } from "@/components/action-items-sidebar";
 import { TranscriptPanel } from "@/components/transcript-panel";
-import { ArrowLeft, Clock, MessageSquare, ScrollText, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { ArrowLeft, Check, Clock, MessageSquare, Pencil, ScrollText, Users } from "lucide-react";
 
 interface RecordingDetail {
   id: string;
@@ -37,6 +39,8 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"chat" | "transcript">("chat");
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
     fetch(`/api/history/${recordingId}`)
@@ -55,6 +59,22 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
       })
       .catch((e) => setError(e.message));
   }, [recordingId]);
+
+  async function saveName() {
+    if (!detail || !nameDraft.trim()) return setRenaming(false);
+    const res = await fetch(`/api/history/${detail.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: nameDraft.trim() }),
+    });
+    if (res.ok) {
+      setDetail({ ...detail, filename: nameDraft.trim() });
+      toast.success("Recording renamed");
+    } else {
+      toast.error("Could not rename the recording.");
+    }
+    setRenaming(false);
+  }
 
   if (error) {
     return (
@@ -90,7 +110,43 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
             </Link>
           </Button>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold">{detail.filename}</h1>
+            {renaming ? (
+              <form
+                className="flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveName();
+                }}
+              >
+                <Input
+                  autoFocus
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  className="h-8 w-64"
+                  data-testid="rename-input"
+                />
+                <Button type="submit" size="sm" variant="ghost" data-testid="rename-save">
+                  <Check className="h-4 w-4" />
+                </Button>
+              </form>
+            ) : (
+              <h1 className="group flex items-center gap-2 truncate text-xl font-semibold">
+                {detail.filename}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  title="Rename recording"
+                  onClick={() => {
+                    setNameDraft(detail.filename);
+                    setRenaming(true);
+                  }}
+                  data-testid="rename-button"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </h1>
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" /> {formatDuration(detail.durationSeconds)}
@@ -127,21 +183,23 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
         <audio controls src={audioUrl} className="mt-4 w-full" data-testid="audio-player" />
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card>
-          <CardContent className="pt-6">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+        <Card className="flex h-[calc(100vh-14rem)] min-h-[420px] flex-col overflow-hidden">
+          <CardContent className="flex min-h-0 flex-1 flex-col pt-6">
             {tab === "chat" ? (
               <ChatWindow recordingId={detail.id} />
             ) : (
-              <TranscriptPanel
-                segments={detail.segments}
-                speakers={detail.speakers}
-                fullTranscript={detail.fullTranscript}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1" data-testid="transcript-scroll">
+                <TranscriptPanel
+                  segments={detail.segments}
+                  speakers={detail.speakers}
+                  fullTranscript={detail.fullTranscript}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
-        <ActionItemsSidebar items={detail.actionItems} />
+        <ActionItemsSidebar items={detail.actionItems} recordingId={detail.id} />
       </div>
     </div>
   );

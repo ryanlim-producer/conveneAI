@@ -189,3 +189,54 @@ describe("App", () => {
     });
   });
 });
+
+describe("post-upload naming", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("lets the user name the recording right after upload", async () => {
+    mockBackend({ cmd_auth_status: { authenticated: true, api_url: "http://x" } });
+    let uploadCompleteHandler: ((event: { payload: string }) => void) | undefined;
+    mockListen.mockImplementation(async (name: string, handler: never) => {
+      if (name === "upload-complete") uploadCompleteHandler = handler;
+      return () => {};
+    });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("record-button")).toBeDefined());
+
+    uploadCompleteHandler?.({ payload: "job-777" });
+    await waitFor(() => expect(screen.getByTestId("naming-input")).toBeDefined());
+
+    await userEvent.type(screen.getByTestId("naming-input"), "Client kickoff call");
+    await userEvent.click(screen.getByTestId("naming-save"));
+
+    expect(mockInvoke).toHaveBeenCalledWith("cmd_rename_job", {
+      jobId: "job-777",
+      filename: "Client kickoff call",
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("naming-input")).toBeNull();
+    });
+  });
+
+  it("can skip naming and keep the automatic name", async () => {
+    mockBackend({ cmd_auth_status: { authenticated: true, api_url: "http://x" } });
+    let uploadCompleteHandler: ((event: { payload: string }) => void) | undefined;
+    mockListen.mockImplementation(async (name: string, handler: never) => {
+      if (name === "upload-complete") uploadCompleteHandler = handler;
+      return () => {};
+    });
+
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("record-button")).toBeDefined());
+
+    uploadCompleteHandler?.({ payload: "job-778" });
+    await waitFor(() => expect(screen.getByTestId("naming-skip")).toBeDefined());
+    await userEvent.click(screen.getByTestId("naming-skip"));
+
+    expect(screen.queryByTestId("naming-input")).toBeNull();
+    expect(mockInvoke).not.toHaveBeenCalledWith("cmd_rename_job", expect.anything());
+  });
+});

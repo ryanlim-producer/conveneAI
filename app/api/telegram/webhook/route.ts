@@ -76,7 +76,8 @@ async function handleAudioMessage(
     await sendTelegramMessage(
       chatId,
       `🎙 *Processing audio...*\n\nYour recording is queued (job \`${jobId.slice(0, 8)}\`). ` +
-        `I'll send the action items here when it's done.`,
+        `I'll send the action items here when it's done.\n\n` +
+        `💡 Reply to this message with a name for the recording.`,
     );
   } catch (err) {
     console.error("Telegram audio processing error:", err);
@@ -111,6 +112,38 @@ async function handleCallbackQuery(callbackQuery: {
   }
 
   await sendChunkedText(chatId, row.transcript_text);
+}
+
+/** Replying to the bot's "queued (job `xxxxxxxx`)" message names the recording. */
+async function handleNamingReply(
+  chatId: number,
+  telegramUserId: number | undefined,
+  repliedText: string,
+  name: string,
+): Promise<boolean> {
+  const match = repliedText.match(/job `([0-9a-f]{8})`/);
+  if (!match) return false;
+
+  const userId = await resolveUserId(telegramUserId);
+  if (!userId) return false;
+
+  const { getDb } = await import("@/lib/db");
+  const db = getDb();
+  const job = db
+    .prepare("SELECT id, recording_id FROM jobs WHERE user_id = ? AND id LIKE ?")
+    .get(userId, `${match[1]}%`) as { id: string; recording_id: string | null } | undefined;
+  if (!job) return false;
+
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+
+  db.prepare("UPDATE jobs SET filename = ? WHERE id = ?").run(trimmed, job.id);
+  if (job.recording_id) {
+    db.prepare("UPDATE recordings SET filename = ? WHERE id = ?").run(trimmed, job.recording_id);
+  }
+
+  await sendTelegramMessage(chatId, `✏️ Recording renamed to *${trimmed}*.`);
+  return true;
 }
 
 /** /link CODE — connect this Telegram user to a web account. */
@@ -192,6 +225,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { message } = update;
     const chatId = message.chat.id as number;
     const telegramUserId = message.from?.id as number | undefined;
+
+    // A text reply to the bot's "queued" message names that recording
+    if (message.text && message.reply_to_message?.text && !message.text.startsWith("/")) {
+      const handled = await handleNamingReply(
+        chatId,
+        telegramUserId,
+        message.reply_to_message.text,
+        message.text,
+      );
+      if (handled) return NextResponse.json({ ok: true });
+    }
 
     if (message.text?.startsWith("/start")) {
       await sendTelegramMessage(

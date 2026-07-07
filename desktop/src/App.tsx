@@ -18,6 +18,8 @@ function App() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [banner, setBanner] = useState<Banner>(null);
   const [noSignal, setNoSignal] = useState(false);
+  const [namingJobId, setNamingJobId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
   const [showBlackHoleGuide, setShowBlackHoleGuide] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hotkey, setHotkey] = useState("Option+R");
@@ -87,8 +89,10 @@ function App() {
 
   // Upload outcome events from the Rust background task
   useEffect(() => {
-    const unlistenDone = listen<string>("upload-complete", () => {
+    const unlistenDone = listen<string>("upload-complete", (event) => {
       setBanner({ kind: "success", text: "✓ Uploaded — processing on the server" });
+      setNamingJobId(event.payload);
+      setNameDraft("");
       setTimeout(() => setBanner(null), 6000);
     });
     const unlistenError = listen<string>("upload-error", (event) => {
@@ -151,6 +155,19 @@ function App() {
     try {
       await invoke("cmd_stop_recording");
       setRecorderState("processing");
+    } catch (err) {
+      setBanner({ kind: "error", text: String(err) });
+    }
+  };
+
+  const saveRecordingName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!namingJobId || !nameDraft.trim()) return;
+    try {
+      await invoke("cmd_rename_job", { jobId: namingJobId, filename: nameDraft.trim() });
+      setBanner({ kind: "success", text: `✓ Named "${nameDraft.trim()}"` });
+      setNamingJobId(null);
+      setTimeout(() => setBanner(null), 4000);
     } catch (err) {
       setBanner({ kind: "error", text: String(err) });
     }
@@ -240,6 +257,62 @@ function App() {
           {hotkey} starts/stops recording from anywhere
         </p>
       </div>
+
+      {namingJobId && (
+        <form
+          onSubmit={saveRecordingName}
+          style={{ marginTop: "12px", display: "flex", gap: "6px" }}
+          data-testid="naming-form"
+        >
+          <input
+            autoFocus
+            placeholder="Name this recording…"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "8px 10px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              fontSize: "12px",
+            }}
+            data-testid="naming-input"
+          />
+          <button
+            type="submit"
+            disabled={!nameDraft.trim()}
+            style={{
+              padding: "8px 12px",
+              border: "none",
+              borderRadius: "8px",
+              background: nameDraft.trim() ? "#3b82f6" : "#d1d5db",
+              color: "white",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: nameDraft.trim() ? "pointer" : "default",
+            }}
+            data-testid="naming-save"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => setNamingJobId(null)}
+            title="Keep the automatic name"
+            style={{
+              padding: "8px 10px",
+              border: "1px solid #d1d5db",
+              borderRadius: "8px",
+              background: "#f9fafb",
+              fontSize: "12px",
+              cursor: "pointer",
+            }}
+            data-testid="naming-skip"
+          >
+            Skip
+          </button>
+        </form>
+      )}
 
       {banner && (
         <p

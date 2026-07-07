@@ -175,3 +175,40 @@ test("full pipeline: upload real audio → queue → done → chat about the mee
   await page.reload();
   await expect(page.locator('[data-testid="chat-message-user"]').first()).toContainText("Mark");
 });
+
+test("manage a recording: rename, group, edit action items, export", async ({ page }) => {
+  // runs after the pipeline test (serial suite) — that recording exists
+  await login(page);
+  await page.goto("/");
+
+  // rename from the history list
+  await page.locator('[data-testid^="history-rename-"]').first().click();
+  await page.locator('[data-testid="history-rename-input"]').fill("Renamed by e2e");
+  await page.click('[data-testid="history-rename-save"]');
+  await expect(page.getByText("Recording renamed")).toBeVisible();
+  await expect(page.getByText("Renamed by e2e")).toBeVisible();
+
+  // move it into a group — a section header appears
+  await page.locator('[data-testid^="history-group-"]').first().click();
+  await page.locator('[data-testid="history-group-input"]').fill("E2E Meetings");
+  await page.click('[data-testid="history-group-save"]');
+  await expect(page.locator('[data-testid="group-header-E2E Meetings"]')).toBeVisible();
+
+  // export link is present and points at the API
+  await expect(page.locator('[data-testid="export-all"]')).toHaveAttribute("href", "/api/export");
+
+  // open the recording and edit action items
+  await page.locator('[data-testid^="recording-link-"]').first().click();
+  await expect(page.locator('[data-testid="recording-workspace"]')).toBeVisible();
+
+  const before = await page.locator('[data-testid="action-item"]').count();
+  await page.click('[data-testid="action-item-add"]');
+  await page.locator('[data-testid="edit-task"]').fill("Follow up added in e2e");
+  await page.locator('[data-testid="edit-assignee"]').fill("Ryan");
+  await page.click('[data-testid="action-items-save"]');
+  await expect(page.getByText("Action items saved")).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('[data-testid="action-item"]')).toHaveCount(before + 1);
+  await expect(page.getByText("Follow up added in e2e")).toBeVisible();
+});

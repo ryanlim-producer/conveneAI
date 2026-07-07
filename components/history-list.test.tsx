@@ -50,7 +50,7 @@ describe("HistoryList", () => {
     await waitFor(() => {
       expect(screen.getByText(/No recordings yet/)).toBeDefined();
     });
-    expect(screen.getByText(/desktop app or send audio to the Telegram bot/)).toBeDefined();
+    expect(screen.getByText(/desktop app, upload here, or send audio/)).toBeDefined();
   });
 
   it("renders recording rows with metadata and source icons", async () => {
