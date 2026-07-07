@@ -6,7 +6,9 @@ export const AUTH_COOKIE = "asisvoz-auth";
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  // INSECURE_COOKIES=1 lets a production deploy serve over plain HTTP
+  // (e.g. bare-IP VPS before a domain/cert exists) without breaking login
+  secure: process.env.NODE_ENV === "production" && process.env.INSECURE_COOKIES !== "1",
   path: "/",
 };
 
