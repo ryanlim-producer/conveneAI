@@ -17,7 +17,7 @@ export async function extractActionItems(
     .map(([id, name]) => `${id} = ${name}`)
     .join(", ");
 
-  const prompt = `You are analyzing a Spanish business meeting transcript. Your task is to extract action items — specific tasks, commitments, or follow-ups that were assigned or agreed upon during the conversation.
+  const prompt = `You are analyzing a business meeting transcript (it may be in any language). Your task is to extract action items — specific tasks, commitments, or follow-ups that were assigned or agreed upon during the conversation.
 
 ${speakerContext ? `Speaker mapping: ${speakerContext}` : ""}
 

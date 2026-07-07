@@ -13,9 +13,9 @@ export async function detectSpeakerNames(
 
   const uniqueSpeakers = [...new Set(segments.map((s) => s.speaker))].sort();
 
-  const prompt = `You are analyzing a Spanish conversation transcript. Your task is to detect the real names of each speaker by looking for:
-- Direct address ("gracias María", "Carlos, tu turno")
-- Self-introductions ("soy Juan", "me llamo Ana")
+  const prompt = `You are analyzing a conversation transcript (any language). Your task is to detect the real names of each speaker by looking for:
+- Direct address ("thanks Maria", "Carlos, your turn", "gracias María")
+- Self-introductions ("I'm John", "my name is Ana", "soy Juan")
 - Others referring to them by name
 
 Speakers in this conversation: ${uniqueSpeakers.map((s) => `Speaker ${s}`).join(", ")}

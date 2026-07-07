@@ -75,7 +75,7 @@ async function handleAudioMessage(
 
     await sendTelegramMessage(
       chatId,
-      `🎙 *Procesando audio...*\n\nYour recording is queued (job \`${jobId.slice(0, 8)}\`). ` +
+      `🎙 *Processing audio...*\n\nYour recording is queued (job \`${jobId.slice(0, 8)}\`). ` +
         `I'll send the action items here when it's done.`,
     );
   } catch (err) {

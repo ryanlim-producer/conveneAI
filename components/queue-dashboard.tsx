@@ -42,7 +42,7 @@ const SOURCE_ICONS = { desktop: Monitor, telegram: Send, web_upload: Globe };
 function formatDate(sqliteUtc: string): string {
   const date = new Date(sqliteUtc.replace(" ", "T") + "Z");
   if (isNaN(date.getTime())) return sqliteUtc;
-  return date.toLocaleString("es-CO", {
+  return date.toLocaleString("en-US", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",

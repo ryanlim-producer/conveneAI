@@ -31,7 +31,7 @@ function formatDate(sqliteUtc: string): string {
   // SQLite datetime('now') is UTC "YYYY-MM-DD HH:MM:SS"
   const date = new Date(sqliteUtc.replace(" ", "T") + "Z");
   if (isNaN(date.getTime())) return sqliteUtc;
-  return date.toLocaleString("es-CO", {
+  return date.toLocaleString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",

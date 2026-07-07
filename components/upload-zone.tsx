@@ -12,10 +12,10 @@ const ACCEPTED = ".mp3,.wav,.webm,.ogg,.oga,.m4a,.mp4,audio/*";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
-  { value: "es", label: "Español" },
-  { value: "pt", label: "Português" },
-  { value: "fr", label: "Français" },
-  { value: "de", label: "Deutsch" },
+  { value: "es", label: "Spanish" },
+  { value: "pt", label: "Portuguese" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
 ];
 
 export function UploadZone() {

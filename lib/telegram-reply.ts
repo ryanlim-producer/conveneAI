@@ -18,7 +18,7 @@ export function formatTranscriptionReply(
     ? `${minutes} min`
     : `${Math.round(durationSeconds)}s`;
 
-  let text = `✅ *Transcripción completa* — ${durationStr} — ${speakerCount} speaker${speakerCount !== 1 ? "s" : ""}`;
+  let text = `✅ *Transcription complete* — ${durationStr} — ${speakerCount} speaker${speakerCount !== 1 ? "s" : ""}`;
 
   if (actionItems.length > 0) {
     text += `\n\n📋 *Action Items:*`;
