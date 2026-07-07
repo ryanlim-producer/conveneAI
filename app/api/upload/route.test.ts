@@ -88,7 +88,7 @@ describe("POST /api/upload", () => {
       status: "queued",
       source: "web_upload",
       filename: "standup.mp3",
-      language: "es",
+      language: "en",
     });
     expect(job!.s3Key).toBe(`uploads/${userId}/${body.jobId}.mp3`);
 

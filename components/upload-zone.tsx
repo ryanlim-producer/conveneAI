@@ -11,8 +11,8 @@ import { UploadCloud, FileAudio } from "lucide-react";
 const ACCEPTED = ".mp3,.wav,.webm,.ogg,.oga,.m4a,.mp4,audio/*";
 
 const LANGUAGES = [
-  { value: "es", label: "Español" },
   { value: "en", label: "English" },
+  { value: "es", label: "Español" },
   { value: "pt", label: "Português" },
   { value: "fr", label: "Français" },
   { value: "de", label: "Deutsch" },
@@ -23,7 +23,7 @@ export function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [language, setLanguage] = useState("es");
+  const [language, setLanguage] = useState("en");
   const [uploading, setUploading] = useState(false);
 
   const pickFile = useCallback((candidate: File | undefined | null) => {

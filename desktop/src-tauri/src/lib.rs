@@ -297,7 +297,7 @@ async fn upload_recording(
         }
     };
 
-    let result = client.upload_audio(&upload_path, "es").await.map_err(|e| match e {
+    let result = client.upload_audio(&upload_path, "en").await.map_err(|e| match e {
         api::ApiError::Unauthorized(msg) => msg,
         other => format!("{other:?}"),
     });

@@ -56,7 +56,7 @@ describe("job queue", () => {
     });
 
     expect(job.status).toBe("queued");
-    expect(job.language).toBe("es"); // default
+    expect(job.language).toBe("en"); // default
 
     const jobs = listJobs(userId);
     expect(jobs.map((j) => j.id)).toContain(job.id);

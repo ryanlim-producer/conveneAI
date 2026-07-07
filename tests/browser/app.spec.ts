@@ -59,7 +59,7 @@ test("upload page shows the drag-and-drop zone and language picker", async ({ pa
   await login(page);
   await page.goto("/upload");
   await expect(page.locator('[data-testid="upload-dropzone"]')).toBeVisible();
-  await expect(page.locator('[data-testid="language-select"]')).toHaveValue("es");
+  await expect(page.locator('[data-testid="language-select"]')).toHaveValue("en");
   await expect(page.locator('[data-testid="upload-submit"]')).toBeDisabled();
 });
 

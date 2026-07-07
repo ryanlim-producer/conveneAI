@@ -77,7 +77,7 @@ export function enqueueJob(input: {
   db.prepare(
     `INSERT INTO jobs (id, user_id, status, source, s3_key, filename, language)
      VALUES (?, ?, 'queued', ?, ?, ?, ?)`,
-  ).run(id, input.userId, input.source, input.s3Key, input.filename, input.language ?? "es");
+  ).run(id, input.userId, input.source, input.s3Key, input.filename, input.language ?? "en");
   return getJob(id)!;
 }
 

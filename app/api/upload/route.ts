@@ -45,7 +45,7 @@ export const POST = withAuth(async (req: NextRequest, { user }) => {
     );
   }
 
-  const language = (formData.get("language") as string) || "es";
+  const language = (formData.get("language") as string) || "en";
   const requestedSource = formData.get("source") as string | null;
   const source: JobSource = UPLOAD_SOURCES.includes(requestedSource as JobSource)
     ? (requestedSource as JobSource)

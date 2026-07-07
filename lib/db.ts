@@ -72,7 +72,7 @@ function createJobsTable(db: Database.Database): void {
       source TEXT NOT NULL CHECK(source IN ('desktop','telegram','web_upload')),
       s3_key TEXT,
       filename TEXT NOT NULL,
-      language TEXT NOT NULL DEFAULT 'es',
+      language TEXT NOT NULL DEFAULT 'en',
       error_message TEXT,
       model_used TEXT,
       attempts INTEGER DEFAULT 0,
