@@ -17,6 +17,7 @@ function App() {
   const [elapsed, setElapsed] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [banner, setBanner] = useState<Banner>(null);
+  const [noSignal, setNoSignal] = useState(false);
   const [showBlackHoleGuide, setShowBlackHoleGuide] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hotkey, setHotkey] = useState("Option+R");
@@ -58,12 +59,25 @@ function App() {
     return () => clearInterval(interval);
   }, [auth]);
 
-  // Poll the input level while recording
+  // Poll the input level while recording; warn after ~5s of flat zero
   useEffect(() => {
-    if (recorderState !== "recording") return;
+    if (recorderState !== "recording") {
+      setNoSignal(false);
+      return;
+    }
+    let silentPolls = 0;
+    const SILENT_POLLS_FOR_WARNING = 33; // ≈5s at 150ms
     const interval = setInterval(async () => {
       try {
-        setAudioLevel(await invoke<number>("cmd_get_audio_level"));
+        const level = await invoke<number>("cmd_get_audio_level");
+        setAudioLevel(level);
+        if (level < 0.005) {
+          silentPolls += 1;
+          if (silentPolls >= SILENT_POLLS_FOR_WARNING) setNoSignal(true);
+        } else {
+          silentPolls = 0;
+          setNoSignal(false);
+        }
       } catch {
         // keep last level
       }
@@ -173,7 +187,14 @@ function App() {
   }
 
   if (recorderState === "recording") {
-    return <RecorderUI elapsedSeconds={elapsed} audioLevel={audioLevel} onStop={handleStop} />;
+    return (
+      <RecorderUI
+        elapsedSeconds={elapsed}
+        audioLevel={audioLevel}
+        onStop={handleStop}
+        noSignal={noSignal}
+      />
+    );
   }
 
   return (

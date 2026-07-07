@@ -2,6 +2,8 @@ interface RecorderUIProps {
   elapsedSeconds: number;
   audioLevel: number;
   onStop: () => void;
+  /** Set after several seconds of a flat-zero input level. */
+  noSignal?: boolean;
 }
 
 function formatTime(totalSeconds: number): string {
@@ -10,7 +12,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-export function RecorderUI({ elapsedSeconds, audioLevel, onStop }: RecorderUIProps) {
+export function RecorderUI({ elapsedSeconds, audioLevel, onStop, noSignal }: RecorderUIProps) {
   const levelPercent = Math.round(audioLevel * 100);
 
   return (
@@ -75,6 +77,24 @@ export function RecorderUI({ elapsedSeconds, audioLevel, onStop }: RecorderUIPro
           }}
         />
       </div>
+
+      {noSignal && (
+        <p
+          data-testid="no-signal-warning"
+          style={{
+            margin: "0 0 12px",
+            padding: "8px 10px",
+            borderRadius: "8px",
+            background: "#fef3c7",
+            color: "#92400e",
+            fontSize: "12px",
+            textAlign: "center",
+          }}
+        >
+          ⚠ No audio detected — check your input source. For Internal Audio, your Mac's
+          output must be routed into BlackHole; for your own voice, use Microphone.
+        </p>
+      )}
 
       {/* Stop button */}
       <div style={{ textAlign: "center" }}>

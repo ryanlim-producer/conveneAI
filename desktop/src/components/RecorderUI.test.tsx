@@ -51,3 +51,15 @@ describe("RecorderUI", () => {
     expect(screen.getByText("00:00")).toBeDefined();
   });
 });
+
+describe("RecorderUI no-signal warning", () => {
+  it("shows a warning when no signal has been detected", () => {
+    render(<RecorderUI elapsedSeconds={8} audioLevel={0} onStop={vi.fn()} noSignal />);
+    expect(screen.getByTestId("no-signal-warning").textContent).toMatch(/no audio detected/i);
+  });
+
+  it("shows no warning during a normal recording", () => {
+    render(<RecorderUI elapsedSeconds={8} audioLevel={0.4} onStop={vi.fn()} />);
+    expect(screen.queryByTestId("no-signal-warning")).toBeNull();
+  });
+});

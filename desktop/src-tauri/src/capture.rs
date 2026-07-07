@@ -170,8 +170,36 @@ pub fn write_wav(audio: &CapturedAudio, path: &std::path::Path) -> Result<(), St
     Ok(())
 }
 
+
+/// True when a capture contains no real signal (all samples at or below
+/// dithering noise). Uploading these wastes a transcription run — it's
+/// always a routing problem (mic permission, or nothing feeding BlackHole).
+pub fn is_effectively_silent(samples: &[f32]) -> bool {
+    const PEAK_THRESHOLD: f32 = 1e-3; // ~-60dB; real speech peaks far above
+    samples.iter().all(|s| s.abs() < PEAK_THRESHOLD)
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_silent_capture_is_detected() {
+        assert!(is_effectively_silent(&vec![0.0f32; 48_000]));
+        // dithering-level noise (~-91dB) still counts as silent
+        assert!(is_effectively_silent(&vec![0.000028f32; 48_000]));
+    }
+
+    #[test]
+    fn test_quiet_but_real_audio_is_not_silent() {
+        let mut samples = vec![0.0f32; 48_000];
+        samples[1000] = 0.01; // a soft but genuine signal peak
+        assert!(!is_effectively_silent(&samples));
+    }
+
+    #[test]
+    fn test_empty_capture_counts_as_silent() {
+        assert!(is_effectively_silent(&[]));
+    }
+
     use super::*;
 
     #[test]

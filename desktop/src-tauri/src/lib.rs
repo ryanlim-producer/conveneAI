@@ -268,6 +268,14 @@ async fn upload_recording(
     if captured.samples.is_empty() {
         return Err("No audio was captured".to_string());
     }
+    if capture::is_effectively_silent(&captured.samples) {
+        return Err(
+            "No audio was captured — the recording is silent. If you're using Internal Audio, \
+             route your Mac's sound output into BlackHole (Multi-Output Device); if you meant \
+             to record yourself, switch the source to Microphone."
+                .to_string(),
+        );
+    }
 
     let client = shared_client(app).ok_or_else(|| "Not signed in — open the app and log in".to_string())?;
 
