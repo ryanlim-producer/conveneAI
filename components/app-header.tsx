@@ -13,7 +13,13 @@ export async function AppHeader({ subtitle }: { subtitle?: string }) {
     <>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">🎙 AsisVoz</h1>
+          <a
+            href="/"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
+          >
+            ← Back to Catalog
+          </a>
+          <h1 className="text-2xl font-semibold">🎙 conveneAI</h1>
           {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         {user && <UserNav email={user.email} />}
