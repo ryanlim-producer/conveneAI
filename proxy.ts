@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const AUTH_COOKIE = "asisvoz-auth";
+const AUTH_COOKIE = "conveneai-auth";
 const PUBLIC_PAGES = ["/login", "/register"];
 
 // Edge middleware can't hit SQLite, so this only checks cookie presence for
@@ -13,13 +13,18 @@ export default function proxy(request: NextRequest) {
   const isPublicPage = PUBLIC_PAGES.some((p) => pathname.startsWith(p));
 
   if (!hasSession && !isPublicPage) {
-    const login = new URL("/login", request.url);
+    const login = request.nextUrl.clone();
+    login.pathname = "/login";
+    login.search = "";
     if (pathname !== "/") login.searchParams.set("next", pathname);
     return NextResponse.redirect(login);
   }
 
   if (hasSession && isPublicPage) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const home = request.nextUrl.clone();
+    home.pathname = "/";
+    home.search = "";
+    return NextResponse.redirect(home);
   }
 
   return NextResponse.next();
