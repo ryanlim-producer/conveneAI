@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Serve from /conveneai so the root path is free for other services
+  basePath: '/conveneai',
+
   // Flat structure: no src/ directory — App Router reads from app/ at root
 
   experimental: {
