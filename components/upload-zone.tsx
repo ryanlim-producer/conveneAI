@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -42,7 +43,7 @@ export function UploadZone() {
       const form = new FormData();
       form.set("file", file);
       form.set("language", language);
-      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const res = await fetch(api("/api/upload"), { method: "POST", body: form });
       const body = await res.json().catch(() => ({}));
       if (res.status !== 202) {
         toast.error(body.error || "Upload failed. Please try again.");

@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -38,7 +39,7 @@ function KeyField({
     if (!value.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/keys", {
+      const res = await fetch(api("/api/keys"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, key: value.trim() }),
@@ -80,14 +81,14 @@ function TelegramLinkSection() {
   const [code, setCode] = useState<{ code: string; botUsername: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/telegram/link-code")
+    fetch(api("/api/telegram/link-code"))
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setLinked(d?.linked ?? false))
       .catch(() => setLinked(false));
   }, []);
 
   async function generate() {
-    const res = await fetch("/api/telegram/link-code", { method: "POST" });
+    const res = await fetch(api("/api/telegram/link-code"), { method: "POST" });
     if (res.ok) setCode(await res.json());
     else toast.error("Could not generate a link code.");
   }
@@ -119,13 +120,13 @@ export function SettingsForm({ email }: { email: string }) {
   const [saving, setSaving] = useState(false);
 
   const loadKeys = () =>
-    fetch("/api/keys")
+    fetch(api("/api/keys"))
       .then((r) => (r.ok ? r.json() : { keys: {} }))
       .then((d) => setKeys(d.keys ?? {}))
       .catch(() => {});
 
   useEffect(() => {
-    fetch("/api/settings")
+    fetch(api("/api/settings"))
       .then((r) => r.json())
       .then(setSettings)
       .catch(() => toast.error("Could not load settings."));
@@ -136,7 +137,7 @@ export function SettingsForm({ email }: { email: string }) {
     if (!settings) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch(api("/api/settings"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -149,7 +150,7 @@ export function SettingsForm({ email }: { email: string }) {
   }
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch(api("/api/auth/logout"), { method: "POST" });
     router.push("/login");
     router.refresh();
   }

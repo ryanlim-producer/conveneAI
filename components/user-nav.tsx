@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ export function UserNav({ email }: { email: string }) {
   const pathname = usePathname();
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch(api("/api/auth/logout"), { method: "POST" });
     router.push("/login");
     router.refresh();
   }

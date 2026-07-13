@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -23,7 +24,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/auth/${mode}`, {
+      const res = await fetch(api(`/api/auth/${mode}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -45,7 +46,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center p-6">
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-semibold">🎙 AsisVoz</h1>
+        <h1 className="text-2xl font-semibold">🎙 conveneAI</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {isLogin ? "Sign in to your account" : "Create your account"}
         </p>

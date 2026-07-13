@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
 
+// Serve from /conveneai so the root path is free for other services
+const BASE_PATH = "/conveneai";
+
 const nextConfig: NextConfig = {
-  // Serve from /conveneai so the root path is free for other services
-  basePath: '/conveneai',
+  basePath: BASE_PATH,
+  env: {
+    // Inlined into client bundles; used by lib/api-path.ts to prefix
+    // fetch()/EventSource URLs, which basePath does not rewrite.
+    NEXT_PUBLIC_BASE_PATH: BASE_PATH,
+  },
 
   // Flat structure: no src/ directory — App Router reads from app/ at root
 

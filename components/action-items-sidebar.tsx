@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -63,11 +64,13 @@ function ItemEditor({
 export function ActionItemsSidebar({
   items: initialItems,
   recordingId,
+  defaultCollapsed = false,
 }: {
   items: ActionItem[];
   recordingId?: string;
+  defaultCollapsed?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [items, setItems] = useState<ActionItem[]>(initialItems);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -86,7 +89,7 @@ export function ActionItemsSidebar({
     const cleaned = items.filter((i) => i.task.trim());
     setSaving(true);
     try {
-      const res = await fetch(`/api/history/${recordingId}/actions`, {
+      const res = await fetch(api(`/api/history/${recordingId}/actions`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ actionItems: cleaned }),
@@ -148,7 +151,7 @@ export function ActionItemsSidebar({
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-medium">{item.task}</p>
                         {editable && (
-                          <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <span className="flex shrink-0 gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                             <Button
                               variant="ghost"
                               size="sm"

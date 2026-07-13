@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ export function ChatWindow({ recordingId }: { recordingId: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`/api/chat/${recordingId}`)
+    fetch(api(`/api/chat/${recordingId}`))
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((d) => setMessages(d.messages ?? []))
       .catch(() => setMessages([]));
@@ -42,7 +43,7 @@ export function ChatWindow({ recordingId }: { recordingId: string }) {
     ]);
     setWaiting(true);
     try {
-      const res = await fetch(`/api/chat/${recordingId}`, {
+      const res = await fetch(api(`/api/chat/${recordingId}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),

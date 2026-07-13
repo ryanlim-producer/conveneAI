@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api-path";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +58,7 @@ export function QueueDashboard() {
 
   const loadOnce = useCallback(async () => {
     try {
-      const res = await fetch("/api/queue");
+      const res = await fetch(api("/api/queue"));
       if (res.ok) setJobs((await res.json()).jobs);
     } catch {
       // Poll again next tick
@@ -66,7 +67,7 @@ export function QueueDashboard() {
 
   useEffect(() => {
     // SSE first; fall back to 5s polling if the stream can't connect
-    const source = new EventSource("/api/queue?stream=true");
+    const source = new EventSource(api("/api/queue?stream=true"));
 
     source.onopen = () => setLive(true);
     source.onmessage = (event) => {
@@ -92,7 +93,7 @@ export function QueueDashboard() {
   }, [loadOnce]);
 
   async function retry(jobId: string) {
-    const res = await fetch(`/api/queue/${jobId}/retranscribe`, { method: "POST" });
+    const res = await fetch(api(`/api/queue/${jobId}/retranscribe`), { method: "POST" });
     if (res.status === 202) {
       toast.success("Re-queued for processing");
       loadOnce();
