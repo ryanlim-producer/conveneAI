@@ -2,7 +2,7 @@ use crate::api::UploadResult;
 
 /// Notification title when an upload is accepted by the server.
 pub fn build_notification_title() -> String {
-    "AsisVoz — Recording Uploaded".to_string()
+    "conveneAI — Recording Uploaded".to_string()
 }
 
 /// Notification body when an upload is accepted: processing happens

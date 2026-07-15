@@ -1,4 +1,4 @@
-# ---------- AsisVozApp COMPACTA (solo Deepgram, sin chatbot) ----------
+# ---------- ConveneAIApp COMPACTA (solo Deepgram, sin chatbot) ----------
 import os
 import tempfile
 import threading
@@ -25,7 +25,7 @@ def centrar_ventana(win, ancho=800, alto=1050):
     win.geometry(f"{ancho}x{alto}+{x}+{y}")
 
 
-class AsisVozApp(TkinterDnD.Tk):
+class ConveneAIApp(TkinterDnD.Tk):
     """
     App sin chatbot.
     - Drag & drop / selección de audio
@@ -40,7 +40,7 @@ class AsisVozApp(TkinterDnD.Tk):
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
 
-        self.title("AsisVoz")
+        self.title("conveneAI")
         self.resizable(False, False)
         centrar_ventana(self, 860, 550)
 

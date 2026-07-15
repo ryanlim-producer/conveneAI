@@ -97,7 +97,7 @@ export function TranscriptPanel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="h-6 px-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                   title="Copy this segment"
                   onClick={() => copySegment(g)}
                 >

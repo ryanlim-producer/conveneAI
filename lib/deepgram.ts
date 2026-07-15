@@ -99,6 +99,45 @@ export async function getBalance(apiKey: string): Promise<BalanceResult> {
 
 export const DEFAULT_DEEPGRAM_MODEL = "nova-3";
 
+/** Detect audio container format from magic bytes. */
+function detectAudioFormat(buffer: Buffer): "wav" | "mp3" | "ogg" | "mp4" | "webm" | "unknown" {
+  if (buffer.length < 4) return "unknown";
+  // RIFF....WAVE
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46
+      && buffer[8] === 0x57 && buffer[9] === 0x41 && buffer[10] === 0x56 && buffer[11] === 0x45) {
+    return "wav";
+  }
+  // MP3: sync word 0xFF 0xFB/0xFA/0xF3/0xF2, or ID3 tag "ID3"
+  if ((buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0)
+      || (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33)) {
+    return "mp3";
+  }
+  // OGG: "OggS"
+  if (buffer[0] === 0x4F && buffer[1] === 0x67 && buffer[2] === 0x67 && buffer[3] === 0x53) {
+    return "ogg";
+  }
+  // MP4/M4A: ftyp box at offset 4
+  if (buffer.length >= 12 && buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70) {
+    return "mp4";
+  }
+  // WebM: EBML header 0x1A 0x45 0xDF 0xA3
+  if (buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3) {
+    return "webm";
+  }
+  return "unknown";
+}
+
+function audioContentType(format: ReturnType<typeof detectAudioFormat>): string {
+  switch (format) {
+    case "wav": return "audio/wav";
+    case "mp3": return "audio/mpeg";
+    case "ogg": return "audio/ogg";
+    case "mp4": return "audio/mp4";
+    case "webm": return "audio/webm";
+    default: return "audio/mpeg";
+  }
+}
+
 export async function transcribeAudio(
   apiKey: string,
   audioBuffer: Buffer,
@@ -114,7 +153,9 @@ export async function transcribeAudio(
     params.set("language", language);
   }
 
-  // Convert Buffer to Uint8Array for Turbopack compatibility
+  const format = detectAudioFormat(audioBuffer);
+  const contentType = audioContentType(format);
+
   const body = new Uint8Array(audioBuffer);
 
   const response = await fetch(
@@ -123,7 +164,8 @@ export async function transcribeAudio(
       method: "POST",
       headers: {
         Authorization: `Token ${apiKey}`,
-        "Content-Type": "audio/mpeg",
+        "Content-Type": contentType,
+        "Content-Length": String(body.byteLength),
       },
       body,
     },

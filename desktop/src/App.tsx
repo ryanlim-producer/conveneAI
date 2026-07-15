@@ -11,7 +11,7 @@ type Banner = { kind: "success" | "error"; text: string } | null;
 
 function App() {
   const [auth, setAuth] = useState<"checking" | "anonymous" | "authenticated">("checking");
-  const [apiUrl, setApiUrl] = useState("http://localhost:3000");
+  const [apiUrl, setApiUrl] = useState("https://5.223.84.152.sslip.io/conveneai");
   const [recorderState, setRecorderState] = useState<RecorderState>("idle");
   const [source, setSource] = useState<AudioSource>("mic");
   const [elapsed, setElapsed] = useState(0);
@@ -23,6 +23,7 @@ function App() {
   const [showBlackHoleGuide, setShowBlackHoleGuide] = useState(false);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hotkey, setHotkey] = useState("Option+R");
+  const [volume, setVolume] = useState(56);
 
   // Session check on launch
   useEffect(() => {
@@ -41,6 +42,17 @@ function App() {
       }
     })();
   }, []);
+
+  // Fetch current output volume from the audio router
+  useEffect(() => {
+    if (auth !== "authenticated") return;
+    (async () => {
+      try {
+        const v = await invoke<number>("cmd_get_output_volume");
+        if (v >= 0) setVolume(Math.round(v * 100));
+      } catch { /* audio router may not be installed */ }
+    })();
+  }, [auth]);
 
   // Keep the view in sync with the Rust recorder (hotkey/tray can change it)
   useEffect(() => {
@@ -179,6 +191,11 @@ function App() {
     await invoke("cmd_set_always_on_top", { onTop: next }).catch(() => {});
   };
 
+  const handleVolumeChange = async (v: number) => {
+    setVolume(v);
+    try { await invoke("cmd_set_output_volume", { volumePct: v }); } catch {}
+  };
+
   if (auth === "checking") {
     return (
       <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontFamily: "system-ui" }}>
@@ -222,6 +239,8 @@ function App() {
         audioLevel={audioLevel}
         onStop={handleStop}
         noSignal={noSignal}
+        volume={volume}
+        onVolumeChange={handleVolumeChange}
       />
     );
   }
@@ -229,7 +248,7 @@ function App() {
   return (
     <div style={{ padding: "20px", fontFamily: "system-ui, sans-serif" }}>
       <h2 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 14px", textAlign: "center" }}>
-        🎙 AsisVoz
+        🎙 conveneAI
       </h2>
 
       <SourceSelector value={source} onChange={handleSourceChange} disabled={recorderState !== "idle"} />
@@ -331,6 +350,23 @@ function App() {
       )}
 
       <div style={{ marginTop: "16px", borderTop: "1px solid #e5e7eb", paddingTop: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+          <span style={{ fontSize: "11px", color: "#6b7280", minWidth: "36px" }}>🔊</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={async (e) => {
+              const v = Number(e.target.value);
+              setVolume(v);
+              try { await invoke("cmd_set_output_volume", { volumePct: v }); } catch {}
+            }}
+            style={{ flex: 1, accentColor: "#3b82f6" }}
+            data-testid="volume-slider"
+          />
+          <span style={{ fontSize: "11px", color: "#6b7280", minWidth: "28px", textAlign: "right" }}>{volume}%</span>
+        </div>
         <label style={{ fontSize: "12px", color: "#6b7280", display: "flex", alignItems: "center", gap: "6px" }}>
           <input
             type="checkbox"

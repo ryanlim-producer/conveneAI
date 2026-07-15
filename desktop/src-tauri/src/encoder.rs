@@ -30,15 +30,26 @@ pub fn build_ffmpeg_args(input_wav: &str, output_mp3: &str, bitrate_bps: u32) ->
     ]
 }
 
-/// Check if ffmpeg is available on the system PATH
+/// Look up the ffmpeg binary path. Checks the system PATH first, then
+/// common Homebrew locations (GUI apps don't inherit the user's shell PATH
+/// so `/opt/homebrew/bin` won't be found by a bare `ffmpeg -version`).
+fn ffmpeg_binary() -> Option<String> {
+  for candidate in &["ffmpeg", "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"] {
+    let status = std::process::Command::new(candidate)
+      .arg("-version")
+      .stdout(std::process::Stdio::null())
+      .stderr(std::process::Stdio::null())
+      .status();
+    if status.map(|s| s.success()).unwrap_or(false) {
+      return Some(candidate.to_string());
+    }
+  }
+  None
+}
+
+/// Check if ffmpeg is available on the system
 pub fn ffmpeg_available() -> bool {
-    std::process::Command::new("ffmpeg")
-        .arg("-version")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+  ffmpeg_binary().is_some()
 }
 
 /// Encode a WAV file to MP3 using ffmpeg.
@@ -49,13 +60,11 @@ pub fn encode_mp3(input_wav: &str, output_mp3: &str, bitrate_bps: u32) -> Result
         return Err(EncodeError::InputNotFound(input_wav.to_string()));
     }
 
-    // Verify ffmpeg is available
-    if !ffmpeg_available() {
-        return Err(EncodeError::FfmpegNotFound);
-    }
+    // Resolve ffmpeg (checks PATH + Homebrew common locations)
+    let ffmpeg = ffmpeg_binary().ok_or(EncodeError::FfmpegNotFound)?;
 
     let args = build_ffmpeg_args(input_wav, output_mp3, bitrate_bps);
-    let output = std::process::Command::new("ffmpeg")
+    let output = std::process::Command::new(&ffmpeg)
         .args(&args)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())

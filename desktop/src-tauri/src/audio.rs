@@ -121,10 +121,10 @@ pub fn enumerate_input_devices() -> Vec<AudioDevice> {
 }
 
 /// Check if any BlackHole device is available
-pub const MEETING_INPUT_NAME: &str = "AsisVoz Meeting Input";
+pub const MEETING_INPUT_NAME: &str = "conveneAI Meeting Input";
 
 /// True when the combined mic+BlackHole aggregate (managed by the
-/// asisvoz-audio-router launchd agent) exists.
+/// conveneai-audio-router launchd agent) exists.
 pub fn meeting_input_available() -> bool {
     enumerate_input_devices().iter().any(|d| d.name == MEETING_INPUT_NAME)
 }

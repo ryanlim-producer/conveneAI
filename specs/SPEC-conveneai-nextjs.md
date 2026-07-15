@@ -1,8 +1,8 @@
-# AsisVoz — Transcription + Action Items Platform
+# conveneAI — Transcription + Action Items Platform
 
 **Date:** 2026-06-29
 **Status:** Final
-**Source:** derived from [AsisVoz desktop app](https://github.com/revkelo/AsisVoz), UI inspired by [OpenSuperWhisper](https://github.com/starmel/OpenSuperWhisper), and extended grilling session on 2026-06-25/29
+**Source:** derived from [conveneAI desktop app](https://github.com/revkelo/conveneAI), UI inspired by [OpenSuperWhisper](https://github.com/starmel/OpenSuperWhisper), and extended grilling session on 2026-06-25/29
 
 ## Overview
 
@@ -312,7 +312,7 @@ Click icon → dropdown:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  🎙 AsisVoz                              💰 $12.34 USD  │
+│  🎙 conveneAI                              💰 $12.34 USD  │
 │  Meeting Transcription + Action Items    🔑 Keys Set     │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │

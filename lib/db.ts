@@ -158,10 +158,21 @@ export function initSchema(db: Database.Database): void {
   if (!hasColumn(db, "recordings", "group_name")) {
     db.exec("ALTER TABLE recordings ADD COLUMN group_name TEXT");
   }
+  if (!hasColumn(db, "recordings", "group_id")) {
+    db.exec("ALTER TABLE recordings ADD COLUMN group_id TEXT REFERENCES groups(id) ON DELETE SET NULL");
+  }
   repairDanglingJobsFk(db);
   createJobsTable(db);
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS groups (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(user_id, name COLLATE NOCASE)
+    );
+
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY,
       recording_id TEXT NOT NULL REFERENCES recordings(id) ON DELETE CASCADE,
@@ -222,7 +233,7 @@ export function getDb(): Database.Database {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  const dbPath = path.join(dataDir, "asisvoz.db");
+  const dbPath = path.join(dataDir, "conveneai.db");
   db = new Database(dbPath);
 
   // WAL mode for concurrent reads during writes

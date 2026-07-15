@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AsisVoz — Meeting Transcription",
+  title: "conveneAI — Meeting Transcription",
   description: "Meeting Transcription + Action Items Platform",
 };
 

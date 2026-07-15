@@ -1,4 +1,4 @@
-# 🎙 AsisVoz v2 — Distributed Meeting Intelligence Platform
+# 🎙 conveneAI v2 — Distributed Meeting Intelligence Platform
 
 One deployed server, three surfaces, all sharing the same user accounts:
 
@@ -12,8 +12,8 @@ Pipeline (all server-side, via a persistent job queue):
 ## Architecture
 
 - **Server** — Next.js 16 on a VPS. REST API + SSE queue updates + web UI + Telegram webhook + in-process job worker (started by `instrumentation.ts`, polls every 5s, survives restarts, retries failed jobs once).
-- **Storage** — audio in **AWS S3** (`uploads/{userId}/{jobId}.mp3`, 90-day lifecycle policy, presigned URLs for playback); metadata in **SQLite** (`data/asisvoz.db`, WAL mode).
-- **Auth** — email + password (bcrypt, 12 rounds), httpOnly session cookie (`asisvoz-auth`), 30-day sessions. All three surfaces log in against the same accounts.
+- **Storage** — audio in **AWS S3** (`uploads/{userId}/{jobId}.mp3`, 90-day lifecycle policy, presigned URLs for playback); metadata in **SQLite** (`data/conveneai.db`, WAL mode).
+- **Auth** — email + password (bcrypt, 12 rounds), httpOnly session cookie (`conveneai-auth`), 30-day sessions. All three surfaces log in against the same accounts.
 - **BYOK** — users store their own Deepgram + Vercel AI Gateway keys (validated on save, AES-256-GCM encrypted, masked in the UI). Env keys act as server-wide fallbacks. LLM 429s fall back per `FALLBACK_MAP` in `lib/llm-client.ts`.
 - **Batch processing** — recordings >30 min are split into 30-min chunks with ffmpeg, transcribed separately, merged with offset timestamps and name-based speaker normalization.
 
@@ -112,12 +112,12 @@ cd desktop/src-tauri && cargo test     # Rust: API client (wiremock), config, ca
 
 1. **Provision** — CX22 (~€5/mo), Ubuntu 24.04. Install Node 20+ (NodeSource), then `apt install -y ffmpeg nginx certbot python3-certbot-nginx sqlite3`.
 2. **App** — clone, `npm ci && npm run build`, create the production `.env` (never commit it).
-3. **Process manager** — `npm i -g pm2 && pm2 start "npm start" --name asisvoz && pm2 save && pm2 startup`.
+3. **Process manager** — `npm i -g pm2 && pm2 start "npm start" --name conveneai && pm2 save && pm2 startup`.
 4. **nginx** — reverse proxy with SSE support (buffering must be off for the queue stream):
 
    ```nginx
    server {
-     server_name asisvoz.example.com;
+     server_name conveneai.example.com;
      client_max_body_size 500M;
 
      location /api/queue {
@@ -135,13 +135,13 @@ cd desktop/src-tauri && cargo test     # Rust: API client (wiremock), config, ca
    }
    ```
 
-5. **SSL** — `certbot --nginx -d asisvoz.example.com`.
+5. **SSL** — `certbot --nginx -d conveneai.example.com`.
 6. **S3** — create the bucket as above; put the IAM keys in `.env`.
 7. **Telegram** — re-register the webhook with the production URL.
 8. **DB backups** — daily cron, keep two weeks:
 
    ```cron
-   0 3 * * * sqlite3 /srv/asisvoz/data/asisvoz.db ".backup /srv/backups/asisvoz-$(date +\%Y\%m\%d).db" && find /srv/backups -name 'asisvoz-*.db' -mtime +14 -delete
+   0 3 * * * sqlite3 /srv/conveneai/data/conveneai.db ".backup /srv/backups/conveneai-$(date +\%Y\%m\%d).db" && find /srv/backups -name 'conveneai-*.db' -mtime +14 -delete
    ```
 
 ## Notes

@@ -17,7 +17,7 @@ pub struct AppSettings {
 }
 
 fn default_api_url() -> String {
-    "http://localhost:3000".to_string()
+    "https://5.223.84.152.sslip.io/conveneai".to_string()
 }
 
 fn default_hotkey() -> String {
@@ -73,13 +73,13 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let settings = AppSettings::default();
-        assert_eq!(settings.api_url, "http://localhost:3000");
+        assert_eq!(settings.api_url, "https://5.223.84.152.sslip.io/conveneai");
         assert_eq!(settings.hotkey, "Option+R");
     }
 
     #[test]
     fn test_load_returns_default_if_no_file() {
-        let path = temp_dir().join("asisvoz-test-nonexistent.json");
+        let path = temp_dir().join("conveneai-test-nonexistent.json");
         let _ = std::fs::remove_file(&path);
         let settings = AppSettings::load(&path).unwrap();
         assert_eq!(settings.api_url, AppSettings::default().api_url);
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load_roundtrip() {
-        let path = temp_dir().join("asisvoz-test-roundtrip.json");
+        let path = temp_dir().join("conveneai-test-roundtrip.json");
         let _ = std::fs::remove_file(&path);
 
         let settings = AppSettings {

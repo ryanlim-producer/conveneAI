@@ -1,12 +1,12 @@
 [package]
-name = "asisvoz-desktop"
+name = "conveneai-desktop"
 version = "0.1.0"
-description = "AsisVoz — Meeting Transcription + Action Items Desktop App"
+description = "conveneAI — Meeting Transcription + Action Items Desktop App"
 authors = ["ryanlim-producer"]
 edition = "2021"
 
 [lib]
-name = "asisvoz_desktop"
+name = "conveneai_desktop"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

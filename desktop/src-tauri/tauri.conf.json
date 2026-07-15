@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicepkg/vscode-tauri/main/schemas/tauri.conf.schema.json",
-  "productName": "AsisVoz",
+  "productName": "conveneAI",
   "version": "0.2.0",
-  "identifier": "com.asisvoz.desktop",
+  "identifier": "com.conveneai.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "AsisVoz",
+        "title": "conveneAI",
         "width": 400,
         "height": 520,
         "minWidth": 360,
@@ -35,5 +35,17 @@
       "iconPath": "icons/idle.png",
       "iconAsTemplate": true
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Productivity"
   }
 }

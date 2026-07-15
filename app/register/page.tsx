@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AuthForm } from "@/components/auth-form";
 
-export const metadata = { title: "Register — AsisVoz" };
+export const metadata = { title: "Register — conveneAI" };
 
 export default function RegisterPage() {
   return (

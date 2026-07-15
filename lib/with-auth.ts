@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateSession, SessionUser } from "./auth";
 
-export const AUTH_COOKIE = "asisvoz-auth";
+export const AUTH_COOKIE = "conveneai-auth";
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,

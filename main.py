@@ -9,7 +9,7 @@ from tkinter import messagebox
 from screeninfo import get_monitors
 
 from VentanaKeys import VentanaLicencia
-from VentanaPrincipal import AsisVozApp
+from VentanaPrincipal import ConveneAIApp
 import utils
 from PIL import Image
 
@@ -106,7 +106,7 @@ def validar_licencia(self):
 # ✅ Lógica para iniciar app solo si ya hay licencia
 def iniciar_si_hay_licencia(root):
     if licencia_ya_registrada():
-        iniciar_asisvoz(root)
+        iniciar_conveneai(root)
     else:
         messagebox.showwarning("Licencia Requerida", "⚠️ Debe ingresar una licencia válida.")
         VentanaLicencia(root)
@@ -204,7 +204,7 @@ def centrar_ctk(win, alto, ancho):
     win.geometry(f"{ancho}x{alto}+{x}+{y}")
     win.update()
 
-def iniciar_asisvoz(root):
+def iniciar_conveneai(root):
     if not licencia_ya_registrada():
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
         root.after(100, lambda: mostrar_ventana_registro_equipo(root))
@@ -217,12 +217,12 @@ def iniciar_asisvoz(root):
     root.destroy()
 
     # ⬇️ AHORA LA APP SOLO RECIBE LA CLAVE DE DEEPGRAM
-    app = AsisVozApp(utils.DEEPGRAM_API_KEY)
+    app = ConveneAIApp(utils.DEEPGRAM_API_KEY)
     app.mainloop()
 
 def crear_ventana_principal():
     root = ctk.CTk()
-    root.title("AsisVoz")
+    root.title("conveneAI")
 
     # Crear menú
     menubar = tk.Menu(root)
@@ -268,7 +268,7 @@ def crear_ventana_principal():
         font=ctk.CTkFont(size=18, weight="bold"),
         width=250,
         height=60,
-        command=lambda: iniciar_asisvoz(root)
+        command=lambda: iniciar_conveneai(root)
     )
     btn_iniciar.pack(pady=18)
 

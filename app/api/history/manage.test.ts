@@ -201,8 +201,8 @@ describe("recording management", () => {
 
   describe("PATCH /api/queue/[id] (rename while processing)", () => {
     it("renames the job, and the linked recording when it exists", async () => {
-      const job = enqueueJob({ userId, filename: "asisvoz-123.mp3", s3Key: "k", source: "desktop" });
-      const recId = insertRecording(userId, { filename: "asisvoz-123.mp3" });
+      const job = enqueueJob({ userId, filename: "conveneai-123.mp3", s3Key: "k", source: "desktop" });
+      const recId = insertRecording(userId, { filename: "conveneai-123.mp3" });
       db.prepare("UPDATE jobs SET recording_id = ? WHERE id = ?").run(recId, job.id);
 
       const res = await patchJob(req(`/api/queue/${job.id}`, "PATCH", { filename: "Standup with team" }), {

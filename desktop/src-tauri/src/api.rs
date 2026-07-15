@@ -42,7 +42,7 @@ fn error_message(body: &str, fallback: &str) -> String {
         .unwrap_or_else(|| fallback.to_string())
 }
 
-/// HTTP client for the deployed AsisVoz server.
+/// HTTP client for the deployed conveneAI server.
 /// The reqwest cookie jar holds the httpOnly session cookie after login,
 /// so one client instance must be shared across all authenticated calls.
 pub struct ApiClient {
@@ -224,7 +224,7 @@ mod tests {
             .and(path("/api/auth/login"))
             .respond_with(
                 ResponseTemplate::new(200)
-                    .insert_header("set-cookie", "asisvoz-auth=tok123; Path=/; HttpOnly")
+                    .insert_header("set-cookie", "conveneai-auth=tok123; Path=/; HttpOnly")
                     .set_body_json(serde_json::json!({ "userId": "u1" })),
             )
             .mount(&server)
@@ -288,7 +288,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let tmp = std::env::temp_dir().join("asisvoz-api-test.mp3");
+        let tmp = std::env::temp_dir().join("conveneai-api-test.mp3");
         std::fs::write(&tmp, b"fake mp3").unwrap();
 
         let client = ApiClient::new(server.uri()).unwrap();

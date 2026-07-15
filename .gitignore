@@ -1,4 +1,4 @@
-# AsisVoz - Meeting Transcription + Action Items Platform
+# conveneAI - Meeting Transcription + Action Items Platform
 
 # Python
 __pycache__/
@@ -35,6 +35,9 @@ data/
 
 # Claude Code
 .claude/settings.local.json
+
+# Infra (contains SSH private key — NEVER commit)
+infra/.ssh/
 
 # OS
 .DS_Store

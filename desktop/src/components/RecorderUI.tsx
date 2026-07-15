@@ -4,6 +4,8 @@ interface RecorderUIProps {
   onStop: () => void;
   /** Set after several seconds of a flat-zero input level. */
   noSignal?: boolean;
+  volume: number;
+  onVolumeChange: (v: number) => void;
 }
 
 function formatTime(totalSeconds: number): string {
@@ -12,7 +14,7 @@ function formatTime(totalSeconds: number): string {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-export function RecorderUI({ elapsedSeconds, audioLevel, onStop, noSignal }: RecorderUIProps) {
+export function RecorderUI({ elapsedSeconds, audioLevel, onStop, noSignal, volume, onVolumeChange }: RecorderUIProps) {
   const levelPercent = Math.round(audioLevel * 100);
 
   return (
@@ -95,6 +97,20 @@ export function RecorderUI({ elapsedSeconds, audioLevel, onStop, noSignal }: Rec
           output must be routed into BlackHole; for your own voice, use Microphone.
         </p>
       )}
+
+      {/* Volume slider */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+        <span style={{ fontSize: "12px", color: "#6b7280" }}>🔊</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          style={{ flex: 1, accentColor: "#3b82f6" }}
+        />
+        <span style={{ fontSize: "11px", color: "#6b7280", minWidth: "28px", textAlign: "right" }}>{volume}%</span>
+      </div>
 
       {/* Stop button */}
       <div style={{ textAlign: "center" }}>

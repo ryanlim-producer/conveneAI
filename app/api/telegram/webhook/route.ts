@@ -46,7 +46,7 @@ async function handleAudioMessage(
     if (!userId) {
       await sendTelegramMessage(
         chatId,
-        "⚠️ Your Telegram isn't linked to an AsisVoz account yet.\n\n" +
+        "⚠️ Your Telegram isn't linked to an conveneAI account yet.\n\n" +
           "Log in to the web UI, generate a code, then send `/link CODE` here.",
       );
       return;
@@ -196,7 +196,7 @@ async function handleLinkCommand(
 
   await sendTelegramMessage(
     chatId,
-    "✅ *Linked!* Your Telegram is now connected to your AsisVoz account.\n\n" +
+    "✅ *Linked!* Your Telegram is now connected to your conveneAI account.\n\n" +
       "• Recordings you send here appear in the web UI\n" +
       "• Action items from desktop recordings arrive here",
   );
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (message.text?.startsWith("/start")) {
       await sendTelegramMessage(
         chatId,
-        `🎙 *AsisVoz* — Meeting Transcription + Action Items\n\n` +
+        `🎙 *conveneAI* — Meeting Transcription + Action Items\n\n` +
           `Send me an audio file and I'll queue it for transcription, detect speakers, and extract action items.\n\n` +
           `You'll get back:\n` +
           `• Full transcript with speaker labels\n` +

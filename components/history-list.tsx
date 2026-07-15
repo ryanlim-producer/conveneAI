@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@/lib/api-path";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -73,8 +74,14 @@ const SOURCE_META: Record<HistoryRecording["source"], { icon: string; label: str
 
 const UNGROUPED = "__ungrouped__";
 
+interface FolderInfo {
+  id: string;
+  name: string;
+}
+
 export function HistoryList() {
   const [recordings, setRecordings] = useState<HistoryRecording[] | null>(null);
+  const [folders, setFolders] = useState<FolderInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // inline editors: which recording is being renamed / re-grouped, and drafts
@@ -87,12 +94,34 @@ export function HistoryList() {
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingGroupKey, setRenamingGroupKey] = useState<string | null>(null);
   const [groupRenameDraft, setGroupRenameDraft] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  // Pointer-events drag (works for both mouse and touch, unlike HTML5 DnD)
+  const pointerDrag = useRef<{
+    id: string;
+    label: string;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    active: boolean;
+    raf: number | null;
+  } | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(api("/api/history"));
+      // Folder list is best-effort and must never block or fail the page
+      void Promise.resolve(fetch(api("/api/groups")))
+        .then(async (groupsRes) => {
+          if (!groupsRes?.ok) return;
+          const groupsData = await groupsRes.json().catch(() => null);
+          if (Array.isArray(groupsData?.groups)) setFolders(groupsData.groups);
+        })
+        .catch(() => {});
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `Server error ${res.status}`);
@@ -116,17 +145,31 @@ export function HistoryList() {
 
   const groups = useMemo(() => {
     const map = new Map<string, HistoryRecording[]>();
+    const names = new Map<string, string>();
+    const idKeys = new Set<string>();
+    // Always render Ungrouped so it stays available as a drop target
+    map.set(UNGROUPED, []);
+    // Seed with known folders so empty ones render (and act as drop targets)
+    for (const folder of folders) {
+      map.set(folder.id, []);
+      names.set(folder.id, folder.name);
+      idKeys.add(folder.id);
+    }
     for (const rec of recordings ?? []) {
       const key = rec.groupId || rec.group?.trim() || UNGROUPED;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(rec);
+      if (key !== UNGROUPED && !names.has(key)) {
+        names.set(key, rec.groupName || rec.group || key);
+      }
+      if (rec.groupId === key) idKeys.add(key);
     }
     const namedKeys = [...map.keys()].filter((k) => k !== UNGROUPED);
 
     // Apply sort
     namedKeys.sort((a, b) => {
-      const nameA = (map.get(a)?.[0]?.groupName || map.get(a)?.[0]?.group || a).toLowerCase();
-      const nameB = (map.get(b)?.[0]?.groupName || map.get(b)?.[0]?.group || b).toLowerCase();
+      const nameA = (names.get(a) || a).toLowerCase();
+      const nameB = (names.get(b) || b).toLowerCase();
       const countA = map.get(a)!.length;
       const countB = map.get(b)!.length;
       switch (sortBy) {
@@ -141,15 +184,13 @@ export function HistoryList() {
       }
     });
 
-    return [...namedKeys, ...(map.has(UNGROUPED) ? [UNGROUPED] : [])].map((key) => ({
+    return [...namedKeys, UNGROUPED].map((key) => ({
       key,
-      name:
-        key === UNGROUPED
-          ? null
-          : map.get(key)![0]?.groupName || map.get(key)![0]?.group || key,
+      name: key === UNGROUPED ? null : names.get(key) || key,
+      groupId: idKeys.has(key) ? key : null,
       recordings: map.get(key)!,
     }));
-  }, [recordings, sortBy]);
+  }, [recordings, folders, sortBy]);
 
   const existingGroups = useMemo(
     () =>
@@ -187,6 +228,125 @@ export function HistoryList() {
     if (await patchRecording(rec.id, { group })) {
       setRecordings((prev) => prev?.map((r) => (r.id === rec.id ? { ...r, group } : r)) ?? null);
       toast.success(group ? `Moved to "${group}"` : "Removed from group");
+    }
+  }
+
+  async function moveRecording(
+    recId: string,
+    target: { key: string; name: string | null; groupId: string | null },
+  ) {
+    const rec = recordings?.find((r) => r.id === recId);
+    if (!rec) return;
+    const currentKey = rec.groupId || rec.group?.trim() || UNGROUPED;
+    if (currentKey === target.key) return;
+
+    const body =
+      target.key === UNGROUPED
+        ? { groupId: null }
+        : target.groupId
+          ? { groupId: target.groupId }
+          : { group: target.name };
+
+    if (await patchRecording(recId, body)) {
+      const ungrouped = target.key === UNGROUPED;
+      setRecordings(
+        (prev) =>
+          prev?.map((r) =>
+            r.id === recId
+              ? {
+                  ...r,
+                  groupId: ungrouped ? null : target.groupId,
+                  group: ungrouped ? null : target.name,
+                  groupName: ungrouped ? null : target.name,
+                }
+              : r,
+          ) ?? null,
+      );
+      toast.success(ungrouped ? "Moved to Ungrouped" : `Moved to "${target.name}"`);
+    }
+  }
+
+  function dropKeyAt(x: number, y: number): string | null {
+    // Ghost is pointer-events-none, so this sees the element underneath it
+    const el =
+      typeof document.elementFromPoint === "function" ? document.elementFromPoint(x, y) : null;
+    return el?.closest?.("[data-drop-key]")?.getAttribute("data-drop-key") ?? null;
+  }
+
+  function positionGhost(x: number, y: number) {
+    if (ghostRef.current) {
+      ghostRef.current.style.transform = `translate(${x + 12}px, ${y + 12}px)`;
+    }
+  }
+
+  function startAutoScroll() {
+    // Keep scrolling while the pointer hovers near a viewport edge, so
+    // off-screen folders are reachable mid-drag (essential on mobile)
+    const step = () => {
+      const d = pointerDrag.current;
+      if (!d || !d.active) return;
+      const margin = 80;
+      if (d.lastY < margin) {
+        window.scrollBy(0, -Math.min(24, (margin - d.lastY) / 4 + 4));
+      } else if (d.lastY > window.innerHeight - margin) {
+        window.scrollBy(0, Math.min(24, (d.lastY - (window.innerHeight - margin)) / 4 + 4));
+      }
+      d.raf = requestAnimationFrame(step);
+    };
+    const d = pointerDrag.current;
+    if (d) d.raf = requestAnimationFrame(step);
+  }
+
+  function handleDragPointerDown(e: React.PointerEvent<HTMLDivElement>, rec: HistoryRecording) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    if (typeof e.currentTarget.setPointerCapture === "function") {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Capture is an optimization; the drag still works without it
+      }
+    }
+    pointerDrag.current = {
+      id: rec.id,
+      label: rec.filename,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      active: false,
+      raf: null,
+    };
+  }
+
+  function handleDragPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = pointerDrag.current;
+    if (!d) return;
+    d.lastX = e.clientX;
+    d.lastY = e.clientY;
+    if (!d.active) {
+      // Small threshold so a plain tap on the grip doesn't start a drag
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 5) return;
+      d.active = true;
+      setDraggingId(d.id);
+      startAutoScroll();
+    }
+    positionGhost(e.clientX, e.clientY);
+    setDragOverKey(dropKeyAt(e.clientX, e.clientY));
+  }
+
+  function handleDragPointerEnd(e: React.PointerEvent<HTMLDivElement>) {
+    const d = pointerDrag.current;
+    pointerDrag.current = null;
+    if (!d) return;
+    if (d.raf != null) cancelAnimationFrame(d.raf);
+    if (!d.active) return;
+    setDraggingId(null);
+    setDragOverKey(null);
+    if (e.type === "pointerup") {
+      const key = dropKeyAt(e.clientX, e.clientY);
+      const target = key ? groups.find((g) => g.key === key) : null;
+      if (target) moveRecording(d.id, target);
     }
   }
 
@@ -384,7 +544,15 @@ export function HistoryList() {
         const isCollapsed = collapsedGroups.has(section.key);
 
         return (
-        <section key={section.key} className="mb-6">
+        <section
+          key={section.key}
+          className={cn(
+            "mb-6 rounded-lg transition-colors",
+            draggingId && dragOverKey === section.key && "bg-accent/60 ring-2 ring-ring/50",
+          )}
+          data-drop-key={section.key}
+          data-testid={`drop-section-${section.name ?? "ungrouped"}`}
+        >
           {section.name !== null ? (
             <div className="mb-2 flex items-center gap-1">
               {renamingGroupKey === section.key ? (
@@ -483,10 +651,10 @@ export function HistoryList() {
 
           {!isCollapsed && (
             <div className="space-y-3">
-              {section.recordings.length === 0 && section.name !== null ? (
+              {section.recordings.length === 0 ? (
                 <Card className="border-dashed">
                   <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                    No recordings yet — drag recordings here or use <strong>Move to folder</strong>.
+                    No recordings here — drag recordings here or use <strong>Move to folder</strong>.
                   </CardContent>
                 </Card>
               ) : (
@@ -494,7 +662,13 @@ export function HistoryList() {
 
               const source = SOURCE_META[rec.source] ?? SOURCE_META.web_upload;
               return (
-                <Card key={rec.id} className="transition-colors hover:bg-accent/40">
+                <Card
+                  key={rec.id}
+                  className={cn(
+                    "transition-colors hover:bg-accent/40",
+                    draggingId === rec.id && "opacity-50",
+                  )}
+                >
                   <CardContent className="flex items-center gap-4 py-4">
                     <span className="text-2xl" title={source.label}>
                       {source.icon}
@@ -569,9 +743,13 @@ export function HistoryList() {
                     </div>
                     <div className="flex shrink-0 gap-0.5">
                       <div
-                        className="flex cursor-grab items-center px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                        title="Drag to reorder or move to folder"
+                        className="flex cursor-grab touch-none select-none items-center px-0.5 text-muted-foreground [-webkit-touch-callout:none] hover:text-foreground active:cursor-grabbing"
+                        title="Drag to move to a folder"
                         data-testid={`drag-handle-${rec.id}`}
+                        onPointerDown={(e) => handleDragPointerDown(e, rec)}
+                        onPointerMove={handleDragPointerMove}
+                        onPointerUp={handleDragPointerEnd}
+                        onPointerCancel={handleDragPointerEnd}
                       >
                         <GripVertical className="h-4 w-4" />
                       </div>
@@ -626,6 +804,21 @@ export function HistoryList() {
         </section>
         );
       })}
+
+      {draggingId && (
+        <div
+          ref={(el) => {
+            ghostRef.current = el;
+            // Position immediately on mount so the ghost doesn't flash at 0,0
+            const d = pointerDrag.current;
+            if (el && d) positionGhost(d.lastX, d.lastY);
+          }}
+          className="pointer-events-none fixed left-0 top-0 z-50 max-w-[240px] truncate rounded-md border bg-background px-3 py-1.5 text-sm font-medium shadow-lg"
+          data-testid="drag-ghost"
+        >
+          {pointerDrag.current?.label}
+        </div>
+      )}
 
       <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
         <DialogContent className="sm:max-w-sm">

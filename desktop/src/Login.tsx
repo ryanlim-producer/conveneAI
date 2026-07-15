@@ -39,10 +39,10 @@ export function Login({ defaultApiUrl, onLoggedIn }: LoginProps) {
   return (
     <div style={{ padding: "24px", fontFamily: "system-ui, sans-serif" }}>
       <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 4px", textAlign: "center" }}>
-        🎙 AsisVoz
+        🎙 conveneAI
       </h2>
       <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 16px", textAlign: "center" }}>
-        Sign in with your AsisVoz account
+        Sign in with your conveneAI account
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

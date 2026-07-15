@@ -147,6 +147,34 @@ AWS creds are also in `.env` (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS
 
 ---
 
+## ⚠️ Downstream Impact Checklist — Route / Config Changes
+
+> **Rule:** Before merging any change that touches a URL path, API route, base path, nginx config, or env var, check **all three interfaces**. The web UI is only one of three — the desktop app and Telegram bot depend on the same routes and will silently break if not updated.
+
+### When changing a route or base path, check:
+
+| # | Downstream | What to verify |
+|---|---|---|
+| 1 | **Desktop app (Tauri)** | `api_url` in `desktop/src-tauri/src/config.rs` and `desktop/src/App.tsx` — these are compiled into the macOS binary. Also check the **user's local settings file** at `~/Library/Application Support/conveneAI/conveneai-settings.json` (and legacy `~/Library/Application Support/AsisVoz/asisvoz-settings.json`) — the desktop app reads its API URL from here, and it does NOT auto-update when the server changes. |
+| 2 | **Desktop app (Rust API calls)** | Every API call in `desktop/src-tauri/src/api.rs` constructs URLs as `{api_url}/api/<route>` — if `api_url` doesn't include the base path, requests go to nginx's static catalogue (404). |
+| 3 | **Telegram webhook** | The webhook URL is registered on Telegram's servers via `setWebhook`. Changing the route or adding a base path requires re-registering: `curl -s 'https://api.telegram.org/bot<TOKEN>/setWebhook?url=<NEW_URL>&secret_token=sha256(<TOKEN>)'`. Verify with `getWebhookInfo`. |
+| 4 | **nginx config** | `infra/nginx-asisvoz.conf` and the live `/etc/nginx/sites-enabled/asisvoz` on the server must route the new paths. After changing, run `nginx -t && systemctl reload nginx`. |
+| 5 | **Client-side fetch URLs** | Every `fetch()` / `EventSource` / `<a href>` in the web UI must use `api()` from `lib/api-path.ts` — Next.js `basePath` does NOT auto-prefix hand-written URLs. Only `next/link` and router navigation are auto-prefixed. |
+| 6 | **User's local settings files** | After a base path change, existing desktop app users have a stale `api_url` in their local JSON settings. Either manually update it (as done 2026-07-14) or handle the redirect server-side. |
+| 7 | **Temp audio files (desktop app)** | The desktop app deletes WAV/MP3 temp files immediately after upload attempts regardless of outcome (`desktop/src-tauri/src/lib.rs:367-368`). If the upload fails because of a wrong API URL, the recording is **permanently lost** — there is no retry queue or local cache. |
+
+### Case Study: `/conveneai` Base Path (2026-07-13/14)
+
+On 2026-07-13 the app was moved from the root path to `/conveneai` (commit `d8039aa`). Two downstream interfaces broke silently and weren't discovered until 2026-07-14:
+
+**Telegram bot** — The webhook URL was updated in nginx, but the `secret_token` on Telegram's side was never re-registered. Every webhook request returned `401 Unauthorized` for ~24 hours. The nginx access log showed 20+ rejected POSTs from Telegram's IP. Fix: re-registered webhook with `setWebhook?url=...&secret_token=sha256(botToken)`. The pending message was immediately delivered and processed.
+
+**Desktop app** — The source code default `api_url` (`config.rs`) and the user's local settings file both had `https://5.223.84.152.sslip.io` without `/conveneai`. Uploads went to `/api/upload` which nginx routed to the static catalogue (404). No requests appeared in nginx after the base path change — the user hadn't attempted recording today, but any future attempt would silently fail with temp files deleted. Fix: updated `config.rs`, `App.tsx`, and the user's two local `settings.json` files to include `/conveneai`.
+
+**Lesson:** A one-line base path change in `next.config.ts` + nginx requires coordinated updates across 3 codebases (Next.js, Tauri/Rust, Telegram API) and 2 local files on the user's Mac. None of these have automated tests for the integration — the only signal is the user noticing recordings don't appear.
+
+---
+
 ## Architecture Docs
 
 - `specs/SPEC-v2-architecture.md` — v2 architecture overview
@@ -156,4 +184,4 @@ AWS creds are also in `.env` (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS
 
 ---
 
-*Last updated: 2026-07-13 — Production DB migration from asisvoz.db → conveneai.db, local DB purge, multi-interface architecture documented.*
+*Last updated: 2026-07-14 — Base path downstream impact case study, desktop app settings fix, Telegram webhook re-registration, pointer-events drag-and-drop for mobile.*

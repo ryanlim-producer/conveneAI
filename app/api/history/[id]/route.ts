@@ -116,7 +116,7 @@ async function handlePatch(
     return NextResponse.json({ error: "Recording not found." }, { status: 404 });
   }
 
-  let body: { filename?: unknown; group?: unknown };
+  let body: { filename?: unknown; group?: unknown; groupId?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -140,6 +140,29 @@ async function handlePatch(
     db.prepare("UPDATE recordings SET group_name = ? WHERE id = ?").run(group, id);
   }
 
+  if (body.groupId !== undefined) {
+    if (body.groupId !== null && typeof body.groupId !== "string") {
+      return NextResponse.json({ error: "groupId must be a string or null." }, { status: 400 });
+    }
+    if (body.groupId === null) {
+      // Ungroup
+      db.prepare("UPDATE recordings SET group_id = NULL, group_name = NULL WHERE id = ?").run(id);
+    } else {
+      // Verify group exists and belongs to user
+      const group = db
+        .prepare("SELECT id, name FROM groups WHERE id = ? AND user_id = ?")
+        .get(body.groupId, ctx.user.userId) as { id: string; name: string } | undefined;
+      if (!group) {
+        return NextResponse.json({ error: "Group not found." }, { status: 404 });
+      }
+      db.prepare("UPDATE recordings SET group_id = ?, group_name = ? WHERE id = ?").run(
+        group.id,
+        group.name,
+        id,
+      );
+    }
+  }
+
   return NextResponse.json({ updated: true, id });
 }
 
@@ -148,4 +171,4 @@ export const DELETE = withAuth<{ id: string }>(handleDelete);
 export const PATCH = withAuth<{ id: string }>(handlePatch);
 
 // Exported for testing
-export { handleGetDetail, handleDelete };
+export { handleGetDetail, handleDelete, handlePatch };

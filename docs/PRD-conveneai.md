@@ -1,8 +1,8 @@
-# PRD: AsisVoz — Meeting Transcription + Action Items Platform
+# PRD: conveneAI — Meeting Transcription + Action Items Platform
 
 **Status:** ready-for-agent
 **Date:** 2026-06-29
-**Source spec:** `specs/SPEC-asisvoz-nextjs.md`
+**Source spec:** `specs/SPEC-conveneai-nextjs.md`
 
 ---
 
@@ -14,7 +14,7 @@ The user wants two ways to capture meeting audio: a keyboard hotkey on their Mac
 
 ## Solution
 
-AsisVoz is a local-first meeting intelligence platform with three surfaces sharing one database:
+conveneAI is a local-first meeting intelligence platform with three surfaces sharing one database:
 
 1. **Tauri desktop app** (macOS menu bar utility) — Press a global hotkey, select internal audio (BlackHole) or microphone, record the meeting, get a notification when processing is done
 2. **Telegram bot** — Forward an audio file, get back a list of action items with a "Copy Full Transcript" button

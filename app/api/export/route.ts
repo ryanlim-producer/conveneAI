@@ -37,7 +37,7 @@ export const GET = withAuth(async (_req: NextRequest, { user }) => {
     actionItems: safeParse<unknown[]>(r.action_items_json as string | null, []),
   }));
 
-  const filename = `asisvoz-export-${new Date().toISOString().slice(0, 10)}.json`;
+  const filename = `conveneai-export-${new Date().toISOString().slice(0, 10)}.json`;
   return new NextResponse(
     JSON.stringify(
       { exportedAt: new Date().toISOString(), account: user.email, total: recordings.length, recordings },

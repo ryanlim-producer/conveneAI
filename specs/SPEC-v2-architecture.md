@@ -1,4 +1,4 @@
-# AsisVoz v2 — Distributed Meeting Intelligence Platform
+# conveneAI v2 — Distributed Meeting Intelligence Platform
 
 **Date:** 2026-07-06
 **Status:** Draft
@@ -6,7 +6,7 @@
 
 ## Overview
 
-AsisVoz v2 splits the current monolith into three loosely-coupled surfaces connected by a single deployed server. Instead of the desktop app running transcription locally, it becomes a **dumb recorder** — capture audio, upload, done. The Telegram bot and web UI both run on the deployed server. All intelligence (transcription, diarization, action items, per-meeting chatbot) lives centrally on the server, with audio stored in AWS S3 and metadata in SQLite.
+conveneAI v2 splits the current monolith into three loosely-coupled surfaces connected by a single deployed server. Instead of the desktop app running transcription locally, it becomes a **dumb recorder** — capture audio, upload, done. The Telegram bot and web UI both run on the deployed server. All intelligence (transcription, diarization, action items, per-meeting chatbot) lives centrally on the server, with audio stored in AWS S3 and metadata in SQLite.
 
 ### Core principles
 
@@ -392,7 +392,7 @@ ALTER TABLE recordings ADD COLUMN job_id TEXT REFERENCES jobs(id);
 
 35. **S3 lifecycle policy** — Document (or Terraform/script) for setting up S3 bucket with lifecycle rule: delete objects after 90 days.
 
-36. **DB backup cron** — Document (or script) for daily SQLite backup via `sqlite3 /data/asisvoz.db ".backup /backups/asisvoz-$(date +%Y%m%d).db"`.
+36. **DB backup cron** — Document (or script) for daily SQLite backup via `sqlite3 /data/conveneai.db ".backup /backups/conveneai-$(date +%Y%m%d).db"`.
 
 37. **Deployment guide** — Update README with Hetzner VPS setup steps: Node.js 20+, ffmpeg (`apt install ffmpeg`), nginx reverse proxy (with `proxy_buffering off` for `/api/queue` SSE), Let's Encrypt SSL, PM2 process manager, env var setup, S3 bucket creation, Telegram webhook registration.
 

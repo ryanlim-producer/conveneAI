@@ -19,9 +19,9 @@ impl TrayState {
     /// Returns the tooltip text for this state
     pub fn tooltip(&self) -> &'static str {
         match self {
-            TrayState::Idle => "AsisVoz — Ready",
-            TrayState::Recording => "AsisVoz — Recording…",
-            TrayState::Processing => "AsisVoz — Processing…",
+            TrayState::Idle => "conveneAI — Ready",
+            TrayState::Recording => "conveneAI — Recording…",
+            TrayState::Processing => "conveneAI — Processing…",
         }
     }
 }

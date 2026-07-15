@@ -1,6 +1,6 @@
 {
   "identifier": "main-capability",
-  "description": "Default capability for AsisVoz desktop app",
+  "description": "Default capability for conveneAI desktop app",
   "windows": ["popup"],
   "permissions": [
     "core:default",

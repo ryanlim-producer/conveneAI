@@ -23,11 +23,48 @@ pub struct AppState {
     /// Shared API client — its cookie jar holds the login session, so the
     /// same instance must serve every authenticated request.
     pub api: Mutex<Option<Arc<api::ApiClient>>>,
+    /// Previous default output device name (restored after meeting recording stops)
+    pub prev_default_audio: Mutex<Option<String>>,
 }
 
 fn shared_client(app: &AppHandle) -> Option<Arc<api::ApiClient>> {
     app.try_state::<AppState>()
         .and_then(|s| s.api.lock().unwrap().clone())
+}
+
+const AUDIO_ROUTER_BIN: &str = ".local/bin/conveneai-audio-router";
+
+/// Toggle audio routing for "meeting" source: when recording starts, set the
+/// aggregate device as default output (so system audio flows into BlackHole).
+/// When recording stops, restore the previous default output device.
+fn toggle_meeting_audio_routing(start: bool, state: &AppState) {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let bin = format!("{}/{}", home, AUDIO_ROUTER_BIN);
+
+    if start {
+        match std::process::Command::new(&bin).arg("--start").output() {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                // Look for "PREV_DEFAULT:<name>" in the output
+                if let Some(name) = stdout
+                    .lines()
+                    .find(|l| l.starts_with("PREV_DEFAULT:"))
+                    .and_then(|l| l.strip_prefix("PREV_DEFAULT:"))
+                {
+                    *state.prev_default_audio.lock().unwrap() = Some(name.to_string());
+                }
+            }
+            Err(e) => eprintln!("audio-router --start failed: {e}"),
+        }
+    } else {
+        let prev = state.prev_default_audio.lock().unwrap().take();
+        if let Some(device_name) = prev {
+            let _ = std::process::Command::new(&bin)
+                .arg("--stop")
+                .arg(&device_name)
+                .output();
+        }
+    }
 }
 
 // ── Tray helpers ──
@@ -140,6 +177,13 @@ fn start_recording_impl(app: &AppHandle, source: &str) -> Result<(), String> {
         recorder.start_recording(source).map_err(|e| format!("{e:?}"))?;
     }
 
+    // When recording with any source that needs BlackHole (meeting or
+    // internal audio), route system audio into BlackHole by setting the
+    // aggregate device as default output.
+    if source == "meeting" || source == "blackhole" {
+        toggle_meeting_audio_routing(true, &state);
+    }
+
     match capture::start_capture(source) {
         Ok(handle) => {
             *state.capture.lock().unwrap() = Some(handle);
@@ -223,6 +267,10 @@ fn stop_recording_impl(app: &AppHandle) -> Result<(), String> {
     let _ = app.emit("recorder-changed", "processing");
     let captured = handle.stop();
 
+    // Restore previous default output device (undoes the aggregate device routing
+    // that was set up during meeting recording start).
+    toggle_meeting_audio_routing(false, &state);
+
     let app_for_task = app.clone();
     tauri::async_runtime::spawn(async move {
         let result = upload_recording(&app_for_task, captured).await;
@@ -243,7 +291,7 @@ fn stop_recording_impl(app: &AppHandle) -> Result<(), String> {
                 let _ = app_for_task
                     .notification()
                     .builder()
-                    .title("AsisVoz")
+                    .title("conveneAI")
                     .body(notifications::build_error_body(e))
                     .show();
             }
@@ -289,8 +337,8 @@ async fn upload_recording(
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let tmp = std::env::temp_dir();
-    let wav_path = tmp.join(format!("asisvoz-{timestamp}.wav"));
-    let mp3_path = tmp.join(format!("asisvoz-{timestamp}.mp3"));
+    let wav_path = tmp.join(format!("conveneai-{timestamp}.wav"));
+    let mp3_path = tmp.join(format!("conveneai-{timestamp}.mp3"));
 
     capture::write_wav(&captured, &wav_path)?;
 
@@ -315,11 +363,92 @@ async fn upload_recording(
         other => format!("{other:?}"),
     });
 
-    // Clean up temp files regardless of outcome
-    let _ = std::fs::remove_file(&wav_path);
-    let _ = std::fs::remove_file(&mp3_path);
+    // Persist temp files for 24h so failed uploads are recoverable.
+    // Cleaned up on next recording or app launch.
+    persist_temp_recording(&wav_path, &mp3_path, timestamp);
 
     result
+}
+
+/// Move temp WAV/MP3 files to a persistent directory, then purge
+/// recordings older than 24 hours.
+fn persist_temp_recording(
+    wav_path: &std::path::Path,
+    mp3_path: &std::path::Path,
+    timestamp: u64,
+) {
+    let dir = match recordings_dir() {
+        Some(d) => {
+            let _ = std::fs::create_dir_all(&d);
+            d
+        }
+        None => return,
+    };
+
+    // Move files to persistent storage (ignore errors — best-effort)
+    let dest_wav = dir.join(format!("conveneai-{timestamp}.wav"));
+    let dest_mp3 = dir.join(format!("conveneai-{timestamp}.mp3"));
+    let _ = std::fs::rename(wav_path, &dest_wav);
+    let _ = std::fs::rename(mp3_path, &dest_mp3);
+
+    // Purge recordings older than 24 hours
+    let cutoff = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() - 86_400)
+        .unwrap_or(0);
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(ts_str) = name
+                .strip_prefix("conveneai-")
+                .and_then(|rest| rest.split('.').next())
+            {
+                if let Ok(ts) = ts_str.parse::<u64>() {
+                    if ts < cutoff {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn recordings_dir() -> Option<std::path::PathBuf> {
+    std::env::var("HOME").ok().map(|home| {
+        let mut p = std::path::PathBuf::from(home);
+        p.push("Library");
+        p.push("Application Support");
+        p.push("conveneAI");
+        p.push("recordings");
+        p
+    })
+}
+
+/// Delete any stored recordings older than 24 hours. Called on app startup.
+fn purge_old_recordings() {
+    let dir = match recordings_dir() {
+        Some(d) => d,
+        None => return,
+    };
+    let cutoff = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() - 86_400)
+        .unwrap_or(0);
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(ts_str) = name
+                .strip_prefix("conveneai-")
+                .and_then(|rest| rest.split('.').next())
+            {
+                if let Ok(ts) = ts_str.parse::<u64>() {
+                    if ts < cutoff {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Name the recording right after upload (called from the post-upload banner).
@@ -355,17 +484,50 @@ fn cmd_set_always_on_top(app: AppHandle, on_top: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Read the companion device volume via the audio router (0.0–1.0).
+#[tauri::command]
+fn cmd_get_output_volume() -> Result<f64, String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let bin = format!("{}/{}", home, AUDIO_ROUTER_BIN);
+    let output = std::process::Command::new(&bin)
+        .arg("--get-volume")
+        .output()
+        .map_err(|e| format!("audio-router error: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .find(|l| l.starts_with("VOLUME:"))
+        .and_then(|l| l.strip_prefix("VOLUME:"))
+        .and_then(|v| v.parse::<f64>().ok())
+        .filter(|v| *v >= 0.0)
+        .ok_or_else(|| "Could not read volume".to_string())
+}
+
+/// Set the companion device volume (0–100 percentage).
+#[tauri::command]
+fn cmd_set_output_volume(volume_pct: f64) -> Result<(), String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let bin = format!("{}/{}", home, AUDIO_ROUTER_BIN);
+    let pct = volume_pct.clamp(0.0, 100.0) as u32;
+    std::process::Command::new(&bin)
+        .arg("--volume")
+        .arg(pct.to_string())
+        .output()
+        .map_err(|e| format!("audio-router error: {e}"))?;
+    Ok(())
+}
+
 fn get_config_path() -> std::path::PathBuf {
     if let Ok(home) = std::env::var("HOME") {
         let mut p = std::path::PathBuf::from(home);
         p.push("Library");
         p.push("Application Support");
-        p.push("AsisVoz");
+        p.push("conveneAI");
         std::fs::create_dir_all(&p).ok();
-        p.push("asisvoz-settings.json");
+        p.push("conveneai-settings.json");
         p
     } else {
-        std::path::PathBuf::from("asisvoz-settings.json")
+        std::path::PathBuf::from("conveneai-settings.json")
     }
 }
 
@@ -400,8 +562,12 @@ pub fn run() {
             recorder: Mutex::new(Recorder::new()),
             capture: Mutex::new(None),
             api: Mutex::new(None),
+            prev_default_audio: Mutex::new(None),
         })
         .setup(|app| {
+            // Purge recordings older than 24h left over from prior sessions
+            purge_old_recordings();
+
             // Regular app: dock icon + menu bar tray icon
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Regular);
@@ -478,6 +644,8 @@ pub fn run() {
             cmd_auth_status,
             cmd_logout,
             cmd_rename_job,
+            cmd_get_output_volume,
+            cmd_set_output_volume,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

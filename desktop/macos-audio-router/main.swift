@@ -1,8 +1,8 @@
-// asisvoz-audio-router
+// conveneai-audio-router
 //
-// Keeps a self-managing Multi-Output device ("AsisVoz Audio") as the Mac's
+// Keeps a self-managing Multi-Output device ("conveneAI Audio") as the Mac's
 // default output so that BlackHole ALWAYS receives a copy of system audio
-// (Internal Audio recording in the AsisVoz desktop app keeps working), while
+// (Internal Audio recording in the conveneAI desktop app keeps working), while
 // playback follows your real listening device:
 //
 //   Bluetooth output connected  -> [Bluetooth device + BlackHole]
@@ -14,22 +14,25 @@
 // device the moment it connects — we switch it back to the aggregate that
 // contains it).
 //
-// It also maintains "AsisVoz Meeting Input" — a combined INPUT device
+// It also maintains "conveneAI Meeting Input" — a combined INPUT device
 // [microphone + BlackHole] so the desktop app's "Meeting" source records
 // your own voice and the meeting's system audio at the same time. The
 // microphone member follows Bluetooth the same way playback does.
 //
 // Usage:
-//   asisvoz-audio-router --once    reconcile once and exit (setup / testing)
-//   asisvoz-audio-router           run forever (for launchd)
+//   conveneai-audio-router --once    reconcile once, set as default, exit
+//   conveneai-audio-router --start   save current default, reconcile, set aggregate
+//                                   as default, print PREV_DEFAULT:<uid>, exit
+//   conveneai-audio-router --stop <uid>  restore <uid> as default output, exit
+//   conveneai-audio-router           run forever (for launchd)
 
 import CoreAudio
 import Foundation
 
-let AGGREGATE_UID = "com.asisvoz.audio-router.aggregate"
-let AGGREGATE_NAME = "AsisVoz Audio"
-let INPUT_AGGREGATE_UID = "com.asisvoz.audio-router.meeting-input"
-let INPUT_AGGREGATE_NAME = "AsisVoz Meeting Input"
+let AGGREGATE_UID = "com.conveneai.audio-router.aggregate"
+let AGGREGATE_NAME = "conveneAI Audio"
+let INPUT_AGGREGATE_UID = "com.conveneai.audio-router.meeting-input"
+let INPUT_AGGREGATE_NAME = "conveneAI Meeting Input"
 let BLACKHOLE_NAME_PREFIX = "BlackHole"
 
 func log(_ msg: String) {
@@ -191,6 +194,42 @@ func ensureAggregate(name: String, uid: String, wantedUIDs: [String], mainUID: S
                            mainUID: mainUID, stacked: stacked)
 }
 
+/// Create aggregate devices (if missing) but do NOT change the default output.
+/// Used on boot to ensure the devices exist without hijacking audio.
+func reconcileOnce() {
+    let outputs = devices(scope: kAudioDevicePropertyScopeOutput)
+    let inputs = devices(scope: kAudioDevicePropertyScopeInput)
+
+    guard let blackholeOut = outputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }),
+          let blackholeIn = inputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }) else {
+        log("BlackHole not found — nothing to do (install BlackHole 2ch)")
+        return
+    }
+
+    let btOut = outputs.first { isBluetooth($0) && $0.uid != blackholeOut.uid }
+    let builtInOut = outputs.first { $0.transport == kAudioDeviceTransportTypeBuiltIn }
+
+    if let companion = btOut ?? builtInOut {
+        _ = ensureAggregate(
+            name: AGGREGATE_NAME, uid: AGGREGATE_UID,
+            wantedUIDs: [companion.uid, blackholeOut.uid], mainUID: companion.uid,
+            stacked: true,
+            existing: outputs.first { $0.uid == AGGREGATE_UID })
+    }
+
+    let btMic = inputs.first { isBluetooth($0) && $0.uid != blackholeIn.uid }
+    let builtInMic = inputs.first { $0.transport == kAudioDeviceTransportTypeBuiltIn }
+
+    if let mic = btMic ?? builtInMic {
+        _ = ensureAggregate(
+            name: INPUT_AGGREGATE_NAME, uid: INPUT_AGGREGATE_UID,
+            wantedUIDs: [mic.uid, blackholeIn.uid], mainUID: mic.uid,
+            stacked: false,
+            existing: inputs.first { $0.uid == INPUT_AGGREGATE_UID })
+    }
+}
+
+/// Full reconcile: ensure devices exist AND set the aggregate as default output.
 func reconcile() {
     let outputs = devices(scope: kAudioDevicePropertyScopeOutput)
     let inputs = devices(scope: kAudioDevicePropertyScopeInput)
@@ -234,22 +273,127 @@ func reconcile() {
     }
 }
 
+// ── Volume control ──────────────────────────────────────────────────────────
+
+/// Get the volume scalar [0.0, 1.0] for the companion output device inside the
+/// aggregate. Returns nil when the aggregate or companion can't be found.
+func getCompanionVolume() -> Float32? {
+    let outputs = devices(scope: kAudioDevicePropertyScopeOutput)
+    guard let blackholeOut = outputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }),
+          let aggregate = outputs.first(where: { $0.uid == AGGREGATE_UID }),
+          let companionUID = currentSubDeviceUIDs(aggregate.id)
+              .first(where: { $0 != blackholeOut.uid }) else { return nil }
+    guard let companion = outputs.first(where: { $0.uid == companionUID }) else { return nil }
+
+    var address = propertyAddress(kAudioDevicePropertyVolumeScalar,
+                                   scope: kAudioDevicePropertyScopeOutput)
+    // Most CoreAudio scalar properties need element = master (0), not main (0).
+    // But kAudioDevicePropertyVolumeScalar often lives on channel 1 (element 1).
+    // Try master first, then per-channel.
+    for element: UInt32 in [0, 1] {
+        address.mElement = AudioObjectPropertyElement(element)
+        var size = UInt32(MemoryLayout<Float32>.size)
+        var value: Float32 = 0
+        if AudioObjectGetPropertyData(companion.id, &address, 0, nil, &size, &value) == noErr,
+           AudioObjectHasProperty(companion.id, &address) {
+            return value
+        }
+    }
+    return nil
+}
+
+func setCompanionVolume(_ vol: Float32) -> Bool {
+    let outputs = devices(scope: kAudioDevicePropertyScopeOutput)
+    guard let blackholeOut = outputs.first(where: { $0.name.hasPrefix(BLACKHOLE_NAME_PREFIX) }),
+          let aggregate = outputs.first(where: { $0.uid == AGGREGATE_UID }),
+          let companionUID = currentSubDeviceUIDs(aggregate.id)
+              .first(where: { $0 != blackholeOut.uid }) else { return false }
+    guard let companion = outputs.first(where: { $0.uid == companionUID }) else { return false }
+
+    let clamped = max(0.0, min(1.0, vol))
+    var address = propertyAddress(kAudioDevicePropertyVolumeScalar,
+                                   scope: kAudioDevicePropertyScopeOutput)
+    for element: UInt32 in [0, 1] {
+        address.mElement = AudioObjectPropertyElement(element)
+        if AudioObjectHasProperty(companion.id, &address) {
+            var value = clamped
+            let err = AudioObjectSetPropertyData(companion.id, &address, 0, nil,
+                                                  UInt32(MemoryLayout<Float32>.size), &value)
+            if err == noErr { return true }
+        }
+    }
+    return false
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
-reconcile()
-
-if CommandLine.arguments.contains("--once") {
-    log("reconciled once, exiting")
+// --get-volume: print companion device volume scalar (0.0–1.0)
+if CommandLine.arguments.contains("--get-volume") {
+    if let vol = getCompanionVolume() {
+        print("VOLUME:\(vol)")
+    } else {
+        print("VOLUME:-1")
+    }
     exit(0)
 }
 
-// Debounced re-reconcile on any device topology or default-output change
-// (Bluetooth connects fire several events in quick succession).
+// --volume <0–100>: set companion device volume (percentage)
+if CommandLine.arguments.contains("--volume"), let idx = CommandLine.arguments.firstIndex(of: "--volume") {
+    let valStr = idx + 1 < CommandLine.arguments.count ? CommandLine.arguments[idx + 1] : ""
+    if let pct = Float32(valStr) {
+        let ok = setCompanionVolume(pct / 100.0)
+        log("volume set to \(pct)% — \(ok ? "ok" : "failed")")
+    } else {
+        log("--volume requires a number (0–100)")
+    }
+    exit(0)
+}
+
+// --once: create devices (ensure aggregate exists) but do NOT change default output
+if CommandLine.arguments.contains("--once") {
+    reconcileOnce()
+    log("devices created, exiting")
+    exit(0)
+}
+
+// --start: full reconcile + set aggregate as default output, save previous default
+if CommandLine.arguments.contains("--start") {
+    reconcile()
+    let prevID = getDefaultOutput()
+    if let prevName = getStringProperty(prevID, kAudioObjectPropertyName) {
+        print("PREV_DEFAULT:\(prevName)")
+    }
+    log("recording started — aggregate device now default")
+    exit(0)
+}
+
+// --stop <uid>: restore a specific device as default
+if CommandLine.arguments.contains("--stop"), let idx = CommandLine.arguments.firstIndex(of: "--stop") {
+    let targetName = idx + 1 < CommandLine.arguments.count ? CommandLine.arguments[idx + 1] : nil
+    if let name = targetName {
+        if let device = devices(scope: kAudioDevicePropertyScopeOutput).first(where: { $0.name == name }) {
+            log("restoring default output -> '\(name)'")
+            setDefaultOutput(device.id)
+        } else {
+            log("device '\(name)' not found — cannot restore default output")
+        }
+    } else {
+        log("--stop requires a device name argument")
+    }
+    exit(0)
+}
+
+// Default (no flags): run forever, watching for device changes (launchd mode).
+// Only maintain device membership — do NOT change the default output (that is
+// done by --start / --stop during recording, so volume keys work normally when
+// the user isn't recording).
+reconcileOnce()
+
 let queue = DispatchQueue(label: "audio-router")
 var pending: DispatchWorkItem? = nil
 let listener: AudioObjectPropertyListenerBlock = { _, _ in
     pending?.cancel()
-    let work = DispatchWorkItem { reconcile() }
+    let work = DispatchWorkItem { reconcileOnce() }
     pending = work
     queue.asyncAfter(deadline: .now() + 0.7, execute: work)
 }

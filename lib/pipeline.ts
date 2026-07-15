@@ -6,7 +6,7 @@ import { detectSpeakerNames } from "./name-detector";
 import { extractActionItems, type ActionItem } from "./action-extractor";
 import { getUserSettings } from "./settings";
 import { updateJob, type Job } from "./queue";
-import { getAudioDurationSeconds, splitAudioIntoChunks } from "./audio-split";
+import { getAudioDurationSeconds, splitAudioIntoChunks, convertAudioToMp3 } from "./audio-split";
 import { mergeChunkResults, normalizeSpeakersByName } from "./batch-merge";
 
 // Files longer than this are split into chunks of this size before Deepgram.
@@ -39,7 +39,11 @@ export async function processJob(job: Job): Promise<void> {
 
   updateJob(job.id, { status: "transcribing", modelUsed: settings.deepgramModel });
 
-  const audio = await getAudioBuffer(job.s3Key);
+  let audio = await getAudioBuffer(job.s3Key);
+
+  // Convert to MP3 before sending to Deepgram — uncompressed WAV is ~10x
+  // larger and often triggers 408 SLOW_UPLOAD timeouts from Deepgram.
+  audio = await convertAudioToMp3(audio);
 
   const durationSeconds = await getAudioDurationSeconds(audio);
   const isBatch = durationSeconds > BATCH_THRESHOLD_SECONDS;
