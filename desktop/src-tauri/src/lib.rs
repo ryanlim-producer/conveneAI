@@ -69,17 +69,16 @@ fn toggle_meeting_audio_routing(start: bool, state: &AppState) {
 
 // ── Tray helpers ──
 
-/// Menu bar icon state: 🎙 idle / 🔴 recording / ⚙ processing (title-based —
-/// template icon stays constant, the emoji title conveys state at a glance).
+/// Menu bar icon state — title-based (template icon stays constant).
+/// Combines audio source (mic 🎙 / internal 🎧) with state (idle /
+/// 🔴 recording / ⚙ processing) so the user can tell at a glance what
+/// the hotkey will record.
 fn set_tray_state(app: &AppHandle, state: tray::TrayState) {
     if let Some(tray_icon) = app.tray_by_id("main-tray") {
-        let title = match state {
-            tray::TrayState::Idle => "🎙",
-            tray::TrayState::Recording => "🔴",
-            tray::TrayState::Processing => "⚙",
-        };
-        let _ = tray_icon.set_title(Some(title));
-        let _ = tray_icon.set_tooltip(Some(state.tooltip()));
+        let settings = config::AppSettings::load(&get_config_path()).unwrap_or_default();
+        let title = tray::format_title(state, &settings.last_source);
+        let _ = tray_icon.set_title(Some(&title));
+        let _ = tray_icon.set_tooltip(Some(&tray::format_tooltip(state, &settings.last_source)));
     }
 }
 
@@ -587,10 +586,13 @@ pub fn run() {
                 .item(&quit)
                 .build()?;
 
+            let settings = config::AppSettings::load(&get_config_path()).unwrap_or_default();
+            let initial_title = tray::format_title(tray::TrayState::Idle, &settings.last_source);
+
             let _tray = TrayIconBuilder::with_id("main-tray")
                 .icon(app.default_window_icon().cloned().unwrap())
                 .icon_as_template(true)
-                .title("🎙")
+                .title(&initial_title)
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
@@ -601,9 +603,12 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // Set the initial tooltip (title is set above; the builder
+            // doesn't expose tooltip so we set it right after build).
+            set_tray_state(app.handle(), tray::TrayState::Idle);
+
             // Register the global shortcut (configurable in settings)
             use hotkey::HotkeyConfig;
-            let settings = config::AppSettings::load(&get_config_path()).unwrap_or_default();
             let hotkey_config = HotkeyConfig::new(&settings.hotkey);
 
             let shortcut_result: Result<tauri_plugin_global_shortcut::Shortcut, _> =
