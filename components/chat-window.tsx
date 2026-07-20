@@ -12,7 +12,8 @@ interface ChatMessage {
   content: string;
 }
 
-export function ChatWindow({ recordingId }: { recordingId: string }) {
+export function ChatWindow({ recordingId, apiPrefix }: { recordingId: string; apiPrefix?: string }) {
+  const chatUrl = apiPrefix ?? api(`/api/chat`);
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [draft, setDraft] = useState("");
   const [waiting, setWaiting] = useState(false);
@@ -20,7 +21,7 @@ export function ChatWindow({ recordingId }: { recordingId: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(api(`/api/chat/${recordingId}`))
+    fetch(`${chatUrl}/${recordingId}`)
       .then((r) => (r.ok ? r.json() : { messages: [] }))
       .then((d) => setMessages(d.messages ?? []))
       .catch(() => setMessages([]));
@@ -43,7 +44,7 @@ export function ChatWindow({ recordingId }: { recordingId: string }) {
     ]);
     setWaiting(true);
     try {
-      const res = await fetch(api(`/api/chat/${recordingId}`), {
+      const res = await fetch(`${chatUrl}/${recordingId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),

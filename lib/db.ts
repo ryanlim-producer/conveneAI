@@ -222,6 +222,80 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_recordings_created ON recordings(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
     CREATE INDEX IF NOT EXISTS idx_telegram_links_user ON telegram_links(user_id);
+
+    -- Organization tables
+    CREATE TABLE IF NOT EXISTS organizations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS org_members (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS org_member_sessions (
+      id TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES org_members(id) ON DELETE CASCADE,
+      token TEXT UNIQUE NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS org_folder_links (
+      organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      group_id TEXT NOT NULL UNIQUE REFERENCES groups(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (organization_id, group_id)
+    );
+  `);
+
+  // Rebuild chat_messages to add member_id column (nullable FK to org_members)
+  // and relax user_id to nullable (org member messages have no user_id).
+  // Must run AFTER org_members table exists.
+  if (!hasColumn(db, "chat_messages", "member_id")) {
+    db.pragma("foreign_keys = OFF");
+    try {
+      db.exec(`
+        ALTER TABLE chat_messages RENAME TO chat_messages_old;
+
+        CREATE TABLE chat_messages (
+          id TEXT PRIMARY KEY,
+          recording_id TEXT NOT NULL REFERENCES recordings(id) ON DELETE CASCADE,
+          user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+          member_id TEXT REFERENCES org_members(id) ON DELETE CASCADE,
+          role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        INSERT INTO chat_messages (id, recording_id, user_id, member_id, role, content, created_at)
+        SELECT id, recording_id, user_id, NULL, role, content, created_at
+        FROM chat_messages_old;
+
+        DROP TABLE chat_messages_old;
+      `);
+    } finally {
+      db.pragma("foreign_keys = ON");
+    }
+  }
+
+  // Org-related indexes (idempotent)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_orgs_owner ON organizations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug);
+    CREATE INDEX IF NOT EXISTS idx_org_members_org ON org_members(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_org_sessions_token ON org_member_sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_org_sessions_member ON org_member_sessions(member_id);
+    CREATE INDEX IF NOT EXISTS idx_org_folder_links_org ON org_folder_links(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_org_folder_links_group ON org_folder_links(group_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_member ON chat_messages(member_id);
   `);
 }
 

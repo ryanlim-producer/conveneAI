@@ -4,12 +4,13 @@ import { api } from "@/lib/api-path";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Upload, ListChecks, Settings, LogOut, Home } from "lucide-react";
+import { Upload, ListChecks, Settings, LogOut, Home, Building2 } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "Recordings", icon: Home },
   { href: "/upload", label: "Upload", icon: Upload },
   { href: "/queue", label: "Queue", icon: ListChecks },
+  { href: "/organizations", label: "Organizations", icon: Building2 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

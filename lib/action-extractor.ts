@@ -5,6 +5,7 @@ export interface ActionItem {
   assignee: string;
   deadline: string;
   context: string;
+  completed?: boolean;
 }
 
 export async function extractActionItems(

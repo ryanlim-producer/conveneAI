@@ -8,12 +8,12 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: "http://localhost:3100/conveneai",
     headless: true,
   },
   webServer: {
     command: "npx next dev --port 3100",
-    url: "http://localhost:3100",
+    url: "http://localhost:3100/conveneai/login",
     reuseExistingServer: true,
     timeout: 120_000,
   },
