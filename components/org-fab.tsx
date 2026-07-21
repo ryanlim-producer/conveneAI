@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ListTodo, MessageSquare, Folder, Settings, Plus, X } from "lucide-react";
+import { MessageSquare, Folder, Settings, Plus, X } from "lucide-react";
 
 type OrgTab = "actions" | "chats" | "recordings";
 
@@ -64,7 +64,7 @@ export function OrgFab({ orgSlug, isOwner, onNavigate }: OrgFabProps) {
               </Button>
               <Button size="sm" variant="secondary" className="shadow-md" data-testid="org-fab-actions"
                 onClick={() => { onNavigate("actions"); setOpen(false); }}>
-                <ListTodo className="mr-1.5 h-4 w-4" /> Action Items
+                <Folder className="mr-1.5 h-4 w-4" /> Folders
               </Button>
             </>
           ) : (
@@ -81,7 +81,7 @@ export function OrgFab({ orgSlug, isOwner, onNavigate }: OrgFabProps) {
               </Button>
               <Button size="sm" variant="secondary" className="shadow-md" asChild data-testid="org-fab-actions">
                 <Link href={`/org/${orgSlug}#actions`} onClick={() => setOpen(false)}>
-                  <ListTodo className="mr-1.5 h-4 w-4" /> Action Items
+                  <Folder className="mr-1.5 h-4 w-4" /> Folders
                 </Link>
               </Button>
             </>

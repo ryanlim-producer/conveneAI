@@ -17,6 +17,8 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { OrgFab } from "@/components/org-fab";
+import { FolderCombobox, ALL_FOLDERS_VALUE } from "@/components/folder-combobox";
+import { OrgKanbanBoard, type BoardColumn } from "@/components/org-kanban-board";
 
 interface FolderData {
   id: string;
@@ -96,7 +98,7 @@ function groupByRecording(items: ActionItemEntry[]): RecordingGroup[] {
   return [...map.values()].sort((a, b) => b.recordingCreatedAt.localeCompare(a.recordingCreatedAt));
 }
 
-const ALL_FOLDERS_TAB = "__all__";
+const ALL_FOLDERS_TAB = ALL_FOLDERS_VALUE;
 
 export function OrgWorkspace({
   orgId, orgName, orgSlug, isOwner, memberId,
@@ -110,6 +112,7 @@ export function OrgWorkspace({
   const [view, setView] = useState<"actions" | "chats" | "recordings">("actions");
   const [actionItems, setActionItems] = useState<ActionItemFolder[] | null>(null);
   const [folders, setFolders] = useState<FolderData[] | null>(null);
+  const [boardColumns, setBoardColumns] = useState<BoardColumn[]>([{ id: "action-items", name: "Action Items", builtin: true }]);
   const [recentChats, setRecentChats] = useState<RecentChat[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeFolderId, setActiveFolderId] = useState<string>(ALL_FOLDERS_TAB);
@@ -160,17 +163,34 @@ export function OrgWorkspace({
 
   async function load() {
     try {
-      const [aiRes, fRes, rcRes] = await Promise.all([
+      const [aiRes, fRes, rcRes, bcRes] = await Promise.all([
         fetch(api(`/api/org/${orgId}/action-items`)),
         fetch(api(`/api/org/${orgId}/folders`)),
         fetch(api(`/api/org/${orgId}/recent-chats`)),
+        fetch(api(`/api/org/${orgId}/board-columns`)),
       ]);
       if (aiRes.ok) setActionItems((await aiRes.json()).folders);
       if (fRes.ok) setFolders((await fRes.json()).folders);
       if (rcRes.ok) setRecentChats((await rcRes.json()).chats);
+      if (bcRes.ok) setBoardColumns((await bcRes.json()).columns);
     } catch {} finally {
       setLoading(false);
     }
+  }
+
+  async function addBoardColumn(name: string) {
+    try {
+      const res = await fetch(api(`/api/org/${orgId}/board-columns`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        load();
+      } else {
+        toast.error((await res.json().catch(() => ({}))).error || "Could not add column.");
+      }
+    } catch { toast.error("Could not reach the server."); }
   }
 
   // Build the list of all action items for one recording (across the whole org),
@@ -306,7 +326,7 @@ export function OrgWorkspace({
 
       <div className="flex gap-2 mb-6" role="tablist">
         <Button variant={view === "actions" ? "secondary" : "ghost"} size="sm" onClick={() => setView("actions")} data-testid="org-tab-actions">
-          <ListTodo className="mr-1 h-4 w-4" /> Action Items
+          <Folder className="mr-1 h-4 w-4" /> Folders
         </Button>
         <Button variant={view === "chats" ? "secondary" : "ghost"} size="sm" onClick={() => setView("chats")} data-testid="org-tab-chats">
           <MessageSquare className="mr-1 h-4 w-4" /> Recent Chats
@@ -322,93 +342,82 @@ export function OrgWorkspace({
         </div>
       ) : view === "actions" ? (
         <div data-testid="org-action-items">
-          {!actionItems || actionItems.length === 0 ? (
+          {!folders || folders.length === 0 ? (
             <Card><CardContent className="py-10 text-center">
               <p className="text-3xl">📋</p>
-              <p className="mt-2 font-medium">No action items</p>
+              <p className="mt-2 font-medium">No folders yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Action items from shared recordings will appear here.
+                Folders shared with this organization will appear here.
               </p>
             </CardContent></Card>
           ) : (
             <>
-              {/* Folder tabs — "All" first, aggregating every shared folder */}
-              <ScrollArea className="w-full pb-2">
-                <div className="flex gap-1" role="tablist" data-testid="org-folder-tabs">
-                  <Button
-                    variant={activeFolderId === ALL_FOLDERS_TAB ? "secondary" : "ghost"}
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => setActiveFolderId(ALL_FOLDERS_TAB)}
-                    role="tab"
-                    aria-selected={activeFolderId === ALL_FOLDERS_TAB}
-                    data-testid="org-folder-tab-all"
-                  >
-                    <LayoutGrid className="mr-1 h-3.5 w-3.5" />
-                    All
-                    <Badge variant="secondary" className="ml-1.5 text-xs">
-                      {actionItems.reduce((sum, f) => sum + f.items.length, 0)}
-                    </Badge>
-                  </Button>
-                  {actionItems.map((folder) => {
-                    const selected = activeFolderId === folder.folderId;
-                    return (
-                      <Button
-                        key={folder.folderId}
-                        variant={selected ? "secondary" : "ghost"}
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => setActiveFolderId(folder.folderId)}
-                        role="tab"
-                        aria-selected={selected}
-                        data-testid={`org-folder-tab-${folder.folderId}`}
-                      >
-                        <Folder className="mr-1 h-3.5 w-3.5" />
-                        {folder.folderName}
-                        <Badge variant="secondary" className="ml-1.5 text-xs">{folder.items.length}</Badge>
-                      </Button>
-                    );
-                  })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+              {/* Single searchable dropdown — lists every folder shared with the org,
+                  not just ones with action items, so folders with zero items still show up. */}
+              <div className="mb-4">
+                <FolderCombobox
+                  folders={folders.map((f) => ({
+                    id: f.id,
+                    name: f.name,
+                    count: actionItems?.find((a) => a.folderId === f.id)?.items.length ?? 0,
+                  }))}
+                  value={activeFolderId}
+                  onChange={setActiveFolderId}
+                  totalCount={actionItems?.reduce((sum, f) => sum + f.items.length, 0) ?? 0}
+                />
+              </div>
 
-              {/* Selected folder's action items, grouped by recording/meeting, most recent first */}
+              {/* Selected folder's content, shown as a kanban board */}
               {(() => {
                 const activeItems = activeFolderId === ALL_FOLDERS_TAB
-                  ? actionItems.flatMap((f) => f.items)
-                  : (actionItems.find((f) => f.folderId === activeFolderId)?.items ?? []);
+                  ? (actionItems ?? []).flatMap((f) => f.items)
+                  : (actionItems?.find((f) => f.folderId === activeFolderId)?.items ?? []);
                 const activeFolderKey = activeFolderId; // for editingKey namespacing
                 const recordingGroups = groupByRecording(activeItems);
                 return (
-                  <div className="mt-4 space-y-5">
+                  <OrgKanbanBoard
+                    columns={boardColumns}
+                    isOwner={isOwner}
+                    onAddColumn={addBoardColumn}
+                    renderColumn={(column) => {
+                      if (!column.builtin) {
+                        return (
+                          <p className="py-6 text-center text-sm text-muted-foreground" data-testid={`org-kanban-empty-${column.id}`}>
+                            No cards yet.
+                          </p>
+                        );
+                      }
+                      return (
+                  <div className="mt-2 space-y-5">
                     {recordingGroups.length === 0 ? (
-                      <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+                      <p className="py-8 text-center text-sm text-muted-foreground">
                         No action items in this folder.
-                      </CardContent></Card>
+                      </p>
                     ) : (
                       recordingGroups.map((group) => {
                         const collapsed = collapsedRecordings.has(group.recordingId);
                         return (
                         <section key={group.recordingId}>
                           {/* Meeting header: collapse toggle + date + direct chat link */}
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <button
-                              className="flex min-w-0 items-center gap-2 text-sm hover:text-foreground"
-                              onClick={() => toggleRecordingCollapsed(group.recordingId)}
-                              data-testid={`org-recording-collapse-${group.recordingId}`}
-                            >
-                              {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <span className="font-medium">{formatMeetingDate(group.recordingCreatedAt)}</span>
-                              <span className="truncate text-muted-foreground">— {group.recordingFilename}</span>
-                              <Badge variant="secondary" className="text-xs">{group.items.length}</Badge>
-                            </button>
-                            <Button variant="outline" size="sm" className="shrink-0" asChild data-testid={`org-chat-link-${group.recordingId}`}>
-                              <Link href={`/org/${orgSlug}/recording/${group.recordingId}?tab=chat`}>
-                                <MessageSquare className="mr-1 h-3.5 w-3.5" /> Chat
-                              </Link>
-                            </Button>
+                          <div className="mb-2 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                className="flex min-w-0 items-center gap-1.5 text-sm hover:text-foreground"
+                                onClick={() => toggleRecordingCollapsed(group.recordingId)}
+                                data-testid={`org-recording-collapse-${group.recordingId}`}
+                              >
+                                {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="whitespace-nowrap font-medium">{formatMeetingDate(group.recordingCreatedAt)}</span>
+                                <Badge variant="secondary" className="shrink-0 text-xs">{group.items.length}</Badge>
+                              </button>
+                              <Button variant="outline" size="sm" className="shrink-0" asChild data-testid={`org-chat-link-${group.recordingId}`}>
+                                <Link href={`/org/${orgSlug}/recording/${group.recordingId}?tab=chat`}>
+                                  <MessageSquare className="mr-1 h-3.5 w-3.5" /> Chat
+                                </Link>
+                              </Button>
+                            </div>
+                            <p className="truncate pl-5 text-xs text-muted-foreground">{group.recordingFilename}</p>
                           </div>
 
                           {!collapsed && (
@@ -512,6 +521,9 @@ export function OrgWorkspace({
                       })
                     )}
                   </div>
+                      );
+                    }}
+                  />
                 );
               })()}
             </>

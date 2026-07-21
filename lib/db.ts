@@ -254,6 +254,15 @@ export function initSchema(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (organization_id, group_id)
     );
+
+    -- Custom kanban columns an owner adds beyond the builtin "Action Items" column.
+    CREATE TABLE IF NOT EXISTS org_board_columns (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Rebuild chat_messages to add member_id column (nullable FK to org_members)
@@ -296,6 +305,7 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_org_folder_links_org ON org_folder_links(organization_id);
     CREATE INDEX IF NOT EXISTS idx_org_folder_links_group ON org_folder_links(group_id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_member ON chat_messages(member_id);
+    CREATE INDEX IF NOT EXISTS idx_org_board_columns_org ON org_board_columns(organization_id);
   `);
 }
 
