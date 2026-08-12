@@ -105,15 +105,17 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
 
   return (
     <div data-testid="recording-workspace">
+      {/* Subtle breadcrumb — sidebar handles main navigation */}
+      <Link
+        href="/"
+        className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        All Recordings
+      </Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button variant="ghost" size="sm" asChild data-testid="back-button">
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div className="min-w-0">
-            {renaming ? (
+        <div className="min-w-0">
+          {renaming ? (
               <form
                 className="flex items-center gap-1.5"
                 onSubmit={(e) => {
@@ -165,7 +167,6 @@ export function RecordingWorkspace({ recordingId }: { recordingId: string }) {
                 </Badge>
               )}
             </div>
-          </div>
         </div>
         <div className="flex gap-1" role="tablist">
           <Button

@@ -18,9 +18,9 @@ test.describe.configure({ mode: "serial" });
 
 test("Organizations tab is visible after login", async ({ page }) => {
   await register(page);
-  await expect(page.locator('[data-testid="user-nav"]')).toBeVisible();
-  // Organizations tab should be in the nav
-  await expect(page.locator('[data-testid="user-nav"]')).toContainText("Organizations");
+  await expect(page.locator('[data-testid="app-shell"]')).toBeVisible();
+  // Organizations nav item should be in the sidebar
+  await expect(page.locator('[data-testid="app-sidebar"]')).toContainText("Organizations");
 });
 
 test("Organizations page shows empty state", async ({ page }) => {

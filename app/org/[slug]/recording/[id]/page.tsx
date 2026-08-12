@@ -47,14 +47,12 @@ export default async function OrgRecordingPage({
   }
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-      <OrgRecordingWorkspace
-        orgId={org.id}
-        orgSlug={org.slug}
-        recordingId={recordingId}
-        isOwner={access === "owner"}
-        memberId={memberId}
-      />
-    </div>
+    <OrgRecordingWorkspace
+      orgId={org.id}
+      orgSlug={org.slug}
+      recordingId={recordingId}
+      isOwner={access === "owner"}
+      memberId={memberId}
+    />
   );
 }

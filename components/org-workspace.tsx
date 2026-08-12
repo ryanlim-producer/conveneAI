@@ -296,17 +296,10 @@ export function OrgWorkspace({
   }
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-3xl px-4 py-6 sm:px-6 lg:px-8" data-testid="org-workspace">
+    <div data-testid="org-workspace">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            {isOwner && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/organizations"><ArrowLeft className="h-4 w-4" /> Back</Link>
-              </Button>
-            )}
-          </div>
-          <h1 className="text-2xl font-semibold mt-1">
+          <h1 className="text-xl font-semibold">
             {orgName}
             {isOwner && (
               <Badge variant="outline" className="ml-2 align-middle gap-1" data-testid="org-owner-badge">

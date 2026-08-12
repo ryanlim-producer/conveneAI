@@ -4,7 +4,6 @@ import { getDb } from "@/lib/db";
 import { validateSession } from "@/lib/auth";
 import { AUTH_COOKIE } from "@/lib/with-auth";
 import { OrgManagePanel } from "@/components/org-manage-panel";
-import { AppHeader } from "@/components/app-header";
 
 export default async function OrgManagePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,9 +24,8 @@ export default async function OrgManagePage({ params }: { params: Promise<{ slug
   }
 
   return (
-    <>
-      <AppHeader />
+    <div className="p-8">
       <OrgManagePanel orgId={org.id} orgName={org.name} orgSlug={org.slug} />
-    </>
+    </div>
   );
 }

@@ -185,4 +185,30 @@ describe("GET /api/groups", () => {
     expect(body.groups).toHaveLength(1);
     expect(body.groups[0].name).toBe("My group");
   });
+
+  it("includes lastActivity from the most recent recording", async () => {
+    await post("Team");
+
+    const groupId = (db.prepare("SELECT id FROM groups WHERE name = 'Team'").get() as { id: string }).id;
+
+    // add recordings with different dates
+    db.prepare(
+      "INSERT INTO recordings (id, user_id, filename, source, group_id, created_at) VALUES (?, ?, ?, 'desktop', ?, ?)",
+    ).run(randomUUID(), TEST_USER_ID, "old.mp3", groupId, "2026-01-01 10:00:00");
+    db.prepare(
+      "INSERT INTO recordings (id, user_id, filename, source, group_id, created_at) VALUES (?, ?, ?, 'desktop', ?, ?)",
+    ).run(randomUUID(), TEST_USER_ID, "new.mp3", groupId, "2026-08-12 15:30:00");
+
+    const res = await list();
+    const body = await res.json();
+    expect(body.groups[0].lastActivity).toBe("2026-08-12 15:30:00");
+  });
+
+  it("falls back lastActivity to createdAt for empty groups", async () => {
+    await post("Empty Folder");
+
+    const res = await list();
+    const body = await res.json();
+    expect(body.groups[0].lastActivity).toBe(body.groups[0].createdAt);
+  });
 });

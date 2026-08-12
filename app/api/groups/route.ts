@@ -55,17 +55,23 @@ async function handleListGroups(
   const rows = db
     .prepare(
       `SELECT g.id, g.name, g.created_at,
-              (SELECT COUNT(*) FROM recordings r WHERE r.group_id = g.id AND r.user_id = g.user_id) AS recording_count
+              (SELECT COUNT(*) FROM recordings r WHERE r.group_id = g.id AND r.user_id = g.user_id) AS recording_count,
+              COALESCE(
+                (SELECT MAX(r.created_at) FROM recordings r
+                 WHERE r.group_id = g.id AND r.user_id = g.user_id),
+                g.created_at
+              ) AS last_activity
        FROM groups g
        WHERE g.user_id = ?
        ORDER BY g.name COLLATE NOCASE ASC`,
     )
-    .all(ctx.user.userId) as { id: string; name: string; created_at: string; recording_count: number }[];
+    .all(ctx.user.userId) as { id: string; name: string; created_at: string; recording_count: number; last_activity: string }[];
 
   const groups = rows.map((row) => ({
     id: row.id,
     name: row.name,
     recordingCount: row.recording_count,
+    lastActivity: row.last_activity,
     createdAt: row.created_at,
   }));
 

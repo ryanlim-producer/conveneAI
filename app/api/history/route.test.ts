@@ -67,8 +67,14 @@ function insertRecording(
   return rec;
 }
 
-function mockReq(): NextRequest {
-  return new NextRequest("http://localhost:3000/api/history");
+function mockReq(params?: Record<string, string>): NextRequest {
+  const url = new URL("http://localhost:3000/api/history");
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return new NextRequest(url.toString());
 }
 
 function userCtx(userId = TEST_USER_ID) {
@@ -165,5 +171,27 @@ describe("GET /api/history", () => {
     const body = await res.json();
     expect(body.total).toBe(1);
     expect(body.recordings[0].filename).toBe("mine.mp3");
+  });
+
+  it("filters by groupId query parameter", async () => {
+    // Create a group and assign one recording to it
+    const groupId = randomUUID();
+    db.prepare("INSERT INTO groups (id, user_id, name) VALUES (?, ?, ?)").run(
+      groupId,
+      TEST_USER_ID,
+      "My Folder",
+    );
+
+    insertRecording(db, { filename: "in-folder.mp3" });
+    insertRecording(db, { filename: "outside.mp3" });
+
+    // Assign the first recording to the group
+    const rec = db.prepare("SELECT id FROM recordings WHERE filename = 'in-folder.mp3'").get() as { id: string };
+    db.prepare("UPDATE recordings SET group_id = ?, group_name = ? WHERE id = ?").run(groupId, "My Folder", rec.id);
+
+    const res = await handleGetHistory(mockReq({ groupId }), userCtx());
+    const body = await res.json();
+    expect(body.total).toBe(1);
+    expect(body.recordings[0].filename).toBe("in-folder.mp3");
   });
 });

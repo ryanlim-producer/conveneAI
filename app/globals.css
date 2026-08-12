@@ -32,7 +32,7 @@
 }
 
 :root {
-  --background: 0 0% 100%;
+  --background: 40 6% 97%;  /* off-white warm gray (#F9F9F8) — OpenAI Platform-inspired calm */
   --foreground: 0 0% 3.9%;
   --card: 0 0% 100%;
   --card-foreground: 0 0% 3.9%;

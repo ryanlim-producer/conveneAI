@@ -47,3 +47,4 @@ Thumbs.db
 tsconfig.tsbuildinfo
 test-results/
 playwright-report/
+.env.local

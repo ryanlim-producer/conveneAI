@@ -17,21 +17,33 @@ interface RecordingRow {
 }
 
 async function handleGetHistory(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { user: SessionUser },
 ): Promise<NextResponse> {
   const db = getDb();
+  const groupId = req.nextUrl.searchParams.get("groupId") ?? "";
 
-  const rows = db
-    .prepare(
-      `SELECT r.id, r.filename, r.source, r.duration_seconds, r.speaker_count,
-              r.action_items_json, r.group_name, r.group_id, r.created_at, j.status AS job_status
-       FROM recordings r
-       LEFT JOIN jobs j ON j.id = r.job_id
-       WHERE r.user_id = ?
-       ORDER BY r.created_at DESC`,
-    )
-    .all(ctx.user.userId) as RecordingRow[];
+  const rows = groupId
+    ? (db
+        .prepare(
+          `SELECT r.id, r.filename, r.source, r.duration_seconds, r.speaker_count,
+                  r.action_items_json, r.group_name, r.group_id, r.created_at, j.status AS job_status
+           FROM recordings r
+           LEFT JOIN jobs j ON j.id = r.job_id
+           WHERE r.user_id = ? AND r.group_id = ?
+           ORDER BY r.created_at DESC`,
+        )
+        .all(ctx.user.userId, groupId) as RecordingRow[])
+    : (db
+        .prepare(
+          `SELECT r.id, r.filename, r.source, r.duration_seconds, r.speaker_count,
+                  r.action_items_json, r.group_name, r.group_id, r.created_at, j.status AS job_status
+           FROM recordings r
+           LEFT JOIN jobs j ON j.id = r.job_id
+           WHERE r.user_id = ?
+           ORDER BY r.created_at DESC`,
+        )
+        .all(ctx.user.userId) as RecordingRow[]);
 
   const recordings = rows.map((row) => {
     let actionItemCount = 0;

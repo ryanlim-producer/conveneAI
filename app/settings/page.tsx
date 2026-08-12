@@ -1,4 +1,3 @@
-import { AppHeader } from "@/components/app-header";
 import { SettingsForm } from "@/components/settings-form";
 import { requireUser } from "@/lib/require-user";
 
@@ -8,8 +7,7 @@ export default async function SettingsPage() {
   const user = await requireUser("/settings");
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-3xl p-8">
-      <AppHeader subtitle="API keys, models, and account" />
+    <div className="p-8">
       <SettingsForm email={user.email} />
     </div>
   );

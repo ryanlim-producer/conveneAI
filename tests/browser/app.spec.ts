@@ -33,7 +33,7 @@ test("unauthenticated visitors are redirected to /login", async ({ page }) => {
 
 test("register creates an account and lands on the recordings page", async ({ page }) => {
   await register(page);
-  await expect(page.locator('[data-testid="user-nav"]')).toBeVisible();
+  await expect(page.locator('[data-testid="app-shell"]')).toBeVisible();
   await expect(page.getByText("No recordings yet")).toBeVisible();
 });
 
@@ -47,7 +47,9 @@ test("login rejects a wrong password with a visible error", async ({ page }) => 
 
 test("login works and logout returns to the login page", async ({ page }) => {
   await login(page);
-  await expect(page.locator('[data-testid="user-nav"]')).toBeVisible();
+  await expect(page.locator('[data-testid="app-shell"]')).toBeVisible();
+  await page.click('[data-testid="user-avatar"]');
+  await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
   await page.click('[data-testid="logout-button"]');
   await page.waitForURL("**/login**");
   // session actually destroyed: going home redirects back to login

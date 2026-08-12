@@ -33,14 +33,21 @@ export function DropdownMenu({ trigger, children, align = "end" }: DropdownMenuP
 
   return (
     <div ref={ref} className="relative inline-block">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         {trigger}
-      </button>
+      </div>
       {open && (
         <div
           role="menu"
