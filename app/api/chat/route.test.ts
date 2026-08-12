@@ -18,7 +18,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
 import { initSchema } from "@/lib/db";
 import { registerUser } from "@/lib/auth";
 import { AUTH_COOKIE } from "@/lib/with-auth";
-import { GET as getChat, POST as postChat } from "@/app/api/chat/[recordingId]/route";
+import { GET as getChat, POST as postChat, DELETE as deleteChat } from "@/app/api/chat/[recordingId]/route";
 
 describe("/api/chat/[recordingId]", () => {
   let db: Database.Database;
@@ -161,5 +161,52 @@ describe("/api/chat/[recordingId]", () => {
   it("requires authentication", async () => {
     expect((await post(recordingId, { message: "hola" }, false)).status).toBe(401);
     expect((await get(recordingId, false)).status).toBe(401);
+  });
+
+  describe("DELETE", () => {
+    function del(recId: string, withCookie = true) {
+      return deleteChat(
+        new NextRequest(`http://localhost/api/chat/${recId}`, {
+          method: "DELETE",
+          headers: withCookie ? { cookie } : {},
+        }),
+        { params: Promise.resolve({ recordingId: recId }) },
+      );
+    }
+
+    it("deletes all chat messages for the recording", async () => {
+      await post(recordingId, { message: "Hello" });
+      await post(recordingId, { message: "Follow-up" });
+
+      // 4 messages total (2 user + 2 assistant)
+      const before = await (await get(recordingId)).json();
+      expect(before.messages).toHaveLength(4);
+
+      const res = await del(recordingId);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.deleted).toBe(4);
+
+      const after = await (await get(recordingId)).json();
+      expect(after.messages).toHaveLength(0);
+    });
+
+    it("returns deleted: 0 when there are no messages", async () => {
+      const res = await del(recordingId);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.deleted).toBe(0);
+    });
+
+    it("returns 404 for a recording the user doesn't own", async () => {
+      const other = await registerUser("bob2@example.com", "hunter2secret");
+      if (!other.ok) throw new Error("registration failed");
+      const otherRec = insertRecording(other.userId);
+      expect((await del(otherRec)).status).toBe(404);
+    });
+
+    it("requires authentication", async () => {
+      expect((await del(recordingId, false)).status).toBe(401);
+    });
   });
 });

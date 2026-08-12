@@ -21,7 +21,8 @@ export async function downloadTelegramAudio(
   const getFileData = await getFileRes.json();
 
   if (!getFileData.ok || !getFileData.result?.file_path) {
-    throw new Error("Failed to get Telegram file info");
+    const reason = getFileData.description || `HTTP ${getFileRes.status}`;
+    throw new Error(`Failed to get Telegram file info: ${reason}`);
   }
 
   const filePath = getFileData.result.file_path;
@@ -33,7 +34,7 @@ export async function downloadTelegramAudio(
   );
 
   if (!downloadRes.ok) {
-    throw new Error("Failed to download audio from Telegram");
+    throw new Error(`Failed to download audio from Telegram: HTTP ${downloadRes.status}`);
   }
 
   const arrayBuffer = await downloadRes.arrayBuffer();

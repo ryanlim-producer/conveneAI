@@ -4,7 +4,15 @@ import { api } from "@/lib/api-path";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, SendHorizonal } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, SendHorizonal, Trash2 } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -18,6 +26,8 @@ export function ChatWindow({ recordingId, apiPrefix }: { recordingId: string; ap
   const [draft, setDraft] = useState("");
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,17 +75,51 @@ export function ChatWindow({ recordingId, apiPrefix }: { recordingId: string; ap
     }
   }
 
+  async function clearChat() {
+    setConfirmOpen(false);
+    setClearing(true);
+    try {
+      const res = await fetch(`${chatUrl}/${recordingId}`, { method: "DELETE" });
+      if (res.ok) {
+        setMessages([]);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || "Could not clear chat history.");
+      }
+    } catch {
+      setError("Could not reach the server. Try again.");
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  const hasMessages = messages !== null && messages.length > 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-window">
+      {hasMessages && (
+        <div className="mb-2 flex items-center justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmOpen(true)}
+            disabled={clearing}
+            data-testid="chat-clear-button"
+          >
+            <Trash2 className="mr-1 h-4 w-4" />
+            Clear chat
+          </Button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {messages === null ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Loading conversation…</p>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !clearing ? (
           <div className="py-12 text-center text-sm text-muted-foreground" data-testid="chat-empty">
             <p className="text-2xl">💬</p>
             <p className="mt-2 font-medium text-foreground">Ask a question about this meeting</p>
             <p className="mt-1">
-              e.g. “What did we decide?” or “Summarize the key points.”
+              e.g. "What did we decide?" or "Summarize the key points."
             </p>
           </div>
         ) : (
@@ -98,6 +142,11 @@ export function ChatWindow({ recordingId, apiPrefix }: { recordingId: string; ap
             <Loader2 className="h-4 w-4 animate-spin" /> Thinking…
           </div>
         )}
+        {clearing && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="chat-clearing">
+            <Loader2 className="h-4 w-4 animate-spin" /> Clearing…
+          </div>
+        )}
         {error && (
           <p className="text-sm text-destructive" data-testid="chat-error">
             {error}
@@ -116,6 +165,25 @@ export function ChatWindow({ recordingId, apiPrefix }: { recordingId: string; ap
           <SendHorizonal className="h-4 w-4" />
         </Button>
       </form>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear chat history</DialogTitle>
+            <DialogDescription>
+              This will delete all messages in this conversation. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} data-testid="chat-clear-cancel">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={clearChat} data-testid="chat-clear-confirm">
+              Clear all messages
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

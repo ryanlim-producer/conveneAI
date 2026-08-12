@@ -185,3 +185,112 @@ On 2026-07-13 the app was moved from the root path to `/conveneai` (commit `d803
 ---
 
 *Last updated: 2026-07-14 — Base path downstream impact case study, desktop app settings fix, Telegram webhook re-registration, pointer-events drag-and-drop for mobile.*
+
+
+## Feature Documentation Workflow
+
+All feature planning, design, and implementation artifacts live under `feature-docs/` at the repo root. Start at `feature-docs/README.md` for the full index and navigation guide.
+
+### Directory Structure
+
+```
+feature-docs/
+  README.md                         # Root navigation and feature index
+  <feature-name>/                   # e.g., "discovery-loop-feature"
+    README.md                       # Feature-level — lists implementations
+    <implementation-name>/          # e.g., "4.3-implementation"
+      README.md                     # Implementation workflow
+      ITERATIONS.md                 # Tracking table — which iteration is current
+      shared/                       # Artifacts shared across all iterations
+        references/                 # Architecture docs, design decisions
+        scripts/                    # Shell scripts, DB scripts, test-data helpers
+        fixes/                      # Bug-fix notes (symptom, root cause, fix, verification)
+      iter-1/                       # Iteration 1 artifacts
+        references/                 # Iteration-specific exploration docs
+        specs/                      # Spec for this iteration (spec.md)
+        implementation-reports/     # Report written by /tdd agent on completion
+      iter-2/                       # Iteration 2 (created by /start-new-iteration skill)
+        ...
+```
+
+### Concepts
+
+- **Feature** = a user-facing capability or major subsystem.
+- **Implementation** = a shippable increment within a feature. May go through multiple iterations.
+- **Iteration** = one full `/to-prd → /to-issues scale → /tdd → report` cycle within an implementation.
+- **ITERATIONS.md** = the single source of truth for what iteration we're on, with links to specs and reports.
+- `shared/` = artifacts that span iterations. `iter-N/` = artifacts specific to one iteration.
+
+### End-to-End Flow
+
+1. **User creates a feature folder** under `feature-docs/` (e.g., `mkdir -p feature-docs/my-feature`).
+
+2. **User creates an implementation directory** under the feature (e.g., `mkdir -p feature-docs/my-feature/v1-implementation`).
+
+3. **Scaffold**: Run `/scaffold-implementation-docs` pointing at the implementation directory. This creates `shared/` + `iter-1/` + `ITERATIONS.md` + `README.md`.
+
+4. **Iteration 1**:
+   a. **Reference document**: Discuss with AI, capture findings in `iter-1/references/<topic>.md`.
+   b. **Spec**: `/grill-me` to stress-test the design, then write the spec to `iter-1/specs/spec.md`.
+   c. **PRD**: `/to-prd` converts the spec into a GitHub issue labeled `ready-for-agent`.
+   d. **Issues**: `/to-issues scale` decomposes into vertical-slice child issues.
+   e. **Implement**: `/tdd` loop over each issue (tests first, code, iterate).
+   f. **Report**: The `/tdd` agent writes `iter-1/implementation-reports/report.md` and marks the iteration ✅ complete in ITERATIONS.md.
+
+5. **Subsequent iterations** (if needed):
+   a. Run `/start-new-iteration` pointing at the implementation directory — creates `iter-N/`.
+   b. Read the previous iteration's report for caveats and divergences.
+   c. Repeat the spec → PRD → issues → /tdd → report cycle.
+
+### Autonomous Feature-Docs Updates
+
+Agents must update `feature-docs/` at each workflow stage without being prompted:
+
+| Stage | Action | Who |
+|---|---|---|
+| After writing reference doc | Save to `iter-N/references/<topic>.md` | AI discussion agent |
+| After `/grilling` | Write spec to `iter-N/specs/spec.md` | Grilling agent |
+| After `/to-prd` | PRD published to GitHub (no local file) | `/to-prd` skill |
+| After `/to-issues scale` | Issues published to GitHub (no local files) | `/to-issues` skill |
+| After `/tdd` loop completes | Write `iter-N/implementation-reports/report.md` AND update ITERATIONS.md row to ✅ complete | `/tdd` agent (final act) |
+
+No human should need to say "update the feature-docs directory." Agents own this.
+
+### Implementation Report Template
+
+The `/tdd` agent writes `iter-N/implementation-reports/report.md` as its final act, then updates ITERATIONS.md to mark the row ✅ complete. The report is short — a feedback loop for the *next* iteration's agent. Target audience: the AI writing the next reference doc.
+
+**Required fields:**
+
+```markdown
+# Implementation Report: {IMPLEMENTATION_NAME} — Iteration {N}
+
+## What was built
+{1-2 lines — grounds the report, even if obvious from the PRD title}
+
+## Divergences from spec
+- {Bullet list of things that came out differently than the spec prescribed}
+- {Or: "None — implemented exactly as specified."}
+
+## Unresolved caveats
+- {Known issues, edge cases not handled, things punted to a future iteration}
+- {Or: "None."}
+
+## Key files changed
+- `src/path/to/main-file.ts` — {one-line description}
+- {Top 3-5 files only — quick orient for the next agent}
+
+## Test results
+- {N} passed, {N} failed (or "No tests written" if applicable)
+```
+
+If a field has nothing to report, write "None" rather than omitting it — an absent field reads as incomplete, "None" reads as intentional.
+
+### Conventions
+
+- PRDs and decomposed issues live on **GitHub** (published by `/to-prd` and `/to-issues scale`).
+- `shared/references/` = architecture and design decisions that span iterations.
+- `iter-N/references/` = exploration specific to that iteration.
+- `shared/scripts/` and `shared/fixes/` are shared across all iterations.
+- The `/tdd` agent updates ITERATIONS.md autonomously when an iteration completes.
+- Navigation: `feature-docs/README.md` → feature README → implementation README → ITERATIONS.md.

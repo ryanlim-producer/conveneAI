@@ -102,3 +102,23 @@ export const POST = withAuth<{ recordingId: string }>(async (req: NextRequest, {
 
   return NextResponse.json({ reply, messageId });
 });
+
+export const DELETE = withAuth<{ recordingId: string }>(async (_req, { user, params }) => {
+  const recordingId = params?.recordingId;
+  if (!recordingId) {
+    return NextResponse.json({ error: "Missing recording ID." }, { status: 400 });
+  }
+
+  const recording = getDb()
+    .prepare("SELECT id FROM recordings WHERE id = ? AND user_id = ?")
+    .get(recordingId, user.userId);
+  if (!recording) {
+    return NextResponse.json({ error: "Recording not found." }, { status: 404 });
+  }
+
+  const result = getDb()
+    .prepare("DELETE FROM chat_messages WHERE recording_id = ? AND user_id = ?")
+    .run(recordingId, user.userId);
+
+  return NextResponse.json({ deleted: result.changes });
+});

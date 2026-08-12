@@ -126,11 +126,40 @@ async function handlePostChat(
   return NextResponse.json({ reply, messageId });
 }
 
-async function handler(req: NextRequest, ctx: unknown) {
-  if (req.method === "POST") return handlePostChat(req, ctx as Parameters<typeof handlePostChat>[1]);
-  return handleGetChat(req, ctx as Parameters<typeof handleGetChat>[1]);
+// DELETE: clear chat history
+async function handleDeleteChat(
+  _req: NextRequest,
+  ctx: { orgContext: { orgId: string; type: string; memberId?: string; userId?: string }; params?: { recordingId: string } },
+): Promise<NextResponse> {
+  const identity = resolveIdentity(ctx);
+  const orgId = ctx.orgContext.orgId;
+
+  const folderIds = (getDb()
+    .prepare("SELECT group_id FROM org_folder_links WHERE organization_id = ?")
+    .all(orgId) as { group_id: string }[]).map((r) => r.group_id);
+
+  const recordingId = ctx.params?.recordingId;
+  if (!recordingId) return NextResponse.json({ error: "Missing recordingId." }, { status: 400 });
+
+  const rec = getRecording(recordingId, folderIds);
+  if (!rec) return NextResponse.json({ error: "Recording not found." }, { status: 404 });
+
+  const db = getDb();
+  let result: { changes: number };
+  if (identity.isOwner) {
+    result = db
+      .prepare("DELETE FROM chat_messages WHERE recording_id = ? AND user_id = ?")
+      .run(recordingId, identity.userId);
+  } else {
+    result = db
+      .prepare("DELETE FROM chat_messages WHERE recording_id = ? AND member_id = ?")
+      .run(recordingId, identity.memberId);
+  }
+
+  return NextResponse.json({ deleted: result.changes });
 }
 
 export const GET = withOrgAuth(handleGetChat);
 export const POST = withOrgAuth(handlePostChat);
-export { handleGetChat, handlePostChat };
+export const DELETE = withOrgAuth(handleDeleteChat);
+export { handleGetChat, handlePostChat, handleDeleteChat };
